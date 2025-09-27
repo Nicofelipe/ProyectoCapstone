@@ -12,9 +12,91 @@
 
 /* Siempre modo claro */
 html { color-scheme: light; }
-body { background: var(--app-bg); color: var(--app-text); }
 
-/* Enlaces y hover global */
+/* Que todo tenga altura completa (Ionic + tu app) */
+html, body, ion-app, app-root {
+  height: 100%;
+}
+
+/* 👉 MUY IMPORTANTE: deja espacio inferior global para el footer fijo */
+/*ion-content {
+  --padding-bottom: calc(var(--footer-height) + 12px);
+}*/
+
+/* -------- Layout para FOOTER al final -------- */
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.main {
+  flex: 1 1 auto;
+  min-height: 0;        /* importante para que flex calcule bien */
+  display: flex;
+}
+/* Asegura que el contenido rote dentro del outlet y llene el alto */
+ion-router-outlet {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+/* Los ion-pages internos */
+ion-router-outlet > * {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+/* El ion-content de cada página ocupa todo el alto disponible */
+ion-router-outlet ion-content {
+  --background: var(--app-bg);
+  flex: 1 1 auto;
+}
+
+/* -------- Footer global -------- */
+.app-footer {
+  background: var(--app-accent);     /* #aa9797 */
+  color: #ffffff;
+  border-top: 1px solid rgba(255,255,255,0.18);
+  padding: 16px 12px 20px;
+  text-align: center;
+}
+
+.app-footer h4 {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.app-footer .claim {
+  margin: 0 0 12px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: justify;               /* texto justificado */
+  opacity: .95;
+}
+
+.app-footer .icons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;           /* íconos centrados */
+}
+
+.app-footer ion-button {
+  --background: transparent;
+  --color: #ffffff;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+@media (hover:hover) {
+  .app-footer ion-button:hover::part(native) {
+    background: rgba(255,255,255,0.15); /* hover suave */
+    border-radius: 8px;
+  }
+}
+
+/* -------- Enlaces y hover global -------- */
 a, .link { color: var(--app-text); text-decoration: none; }
 a:hover, .link:hover { background: var(--app-accent); border-radius: 6px; }
 
@@ -30,3 +112,14 @@ ion-button:hover::part(native) {
   --background: var(--app-muted);
   --color: var(--app-text);
 }
+
+/* src/global.scss (al final) */
+ion-content {
+  --footer-height: 100px; /* igual que en app.component.scss */
+}
+.app-shell.footer-visible ion-content,
+ion-content.with-footer {
+  --padding-bottom: calc(var(--footer-height) + env(safe-area-inset-bottom, 0px));
+}
+
+

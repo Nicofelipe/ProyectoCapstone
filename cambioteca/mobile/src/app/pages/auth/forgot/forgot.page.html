@@ -1,0 +1,36 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Recuperar contraseña</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="auth-content">
+  <div class="card">
+    <h2>¿Olvidaste tu contraseña?</h2>
+    <p>Ingresa tu correo y te enviaremos un enlace para restablecerla.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <ion-list lines="none">
+        <ion-item fill="solid">
+          <ion-input
+            type="email"
+            label="Correo"
+            labelPlacement="floating"
+            formControlName="email"
+            autocomplete="email">
+          </ion-input>
+        </ion-item>
+        <ion-note color="danger" *ngIf="f.email.touched && f.email.invalid" class="note">
+          Ingresa un correo válido.
+        </ion-note>
+
+        <ion-button expand="block" class="mt" type="submit" [disabled]="form.invalid || busy">
+          {{ busy ? 'Enviando...' : 'Enviar enlace' }}
+        </ion-button>
+      </ion-list>
+    </form>
+  </div>
+</ion-content>

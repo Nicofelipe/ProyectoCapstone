@@ -4,7 +4,8 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'http://127.0.0.1:8000', // tu API local
+  apiUrl: 'http://127.0.0.1:8000',   // <-- sin /api
+  mediaBase: 'http://127.0.0.1:8000/media/', // base para imágenes
 };
 
 /*

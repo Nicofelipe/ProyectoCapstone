@@ -1,0 +1,42 @@
+.page-content {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-bottom: 0;
+}
+
+.form-list ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+}
+
+.previews {
+  margin: 12px 4px 4px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.thumb {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,.12);
+  cursor: pointer;
+
+  img {
+    width: 100%; height: 110px; object-fit: cover; display: block;
+  }
+
+  .badge {
+    position: absolute; left: 6px; bottom: 6px;
+    font-size: 11px; padding: 4px 8px; border-radius: 999px;
+    background: rgba(0,0,0,.35); color: #fff;
+    &.active { background: #2dd36f; color: #000; font-weight: 700; }
+  }
+}
+
+.actions { margin: 14px 0 4px; }
+
+.bottom-spacer {
+  height: 88px; /* evita que el botón quede tapado por la tabbar/footer */
+}

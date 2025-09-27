@@ -33,27 +33,26 @@ log.txt
 venv/
 ENV/
 
-# Archivos compilados
+# Compilados
 *.pyc
 *.pyo
 *.pyd
 __pycache__/
 *.so
 
-# Migraciones de Django (opcional ignorar si no quieres versionarlas)
-#*/migrations/__pycache__/
-#*/migrations/*.pyc
-#*/migrations/*.pyo
-#*/migrations/*.pyd
-
-# Archivos sensibles / locales
+# Base local y entornos
 db.sqlite3
 .env
 *.env
 
-# Archivos estáticos y media
-staticfiles/
+# Archivos estáticos generados y media de runtime
+backend/staticfiles/
 media/
+
+# (IMPORTANTE) Sí versionamos migraciones para reproducir la BD en Railway
+# Si algún día no quisieras versionarlas, descomenta estas líneas:
+# */migrations/__pycache__/
+# */migrations/*.pyc
 
 # =====================
 # NODE / ANGULAR / IONIC FRONTEND
@@ -65,10 +64,12 @@ out-tsc/
 tmp/
 npm-debug.log*
 yarn-error.log*
-package-lock.json
 .pnpm-debug.log*
 
-# Ionic
+# Mantenemos package-lock.json versionado para builds reproducibles
+# (NO lo ignores)
+
+# Ionic / Capacitor
 /.ionic
 /platforms
 /plugins

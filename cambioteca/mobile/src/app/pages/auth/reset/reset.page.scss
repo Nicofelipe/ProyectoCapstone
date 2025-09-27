@@ -1,0 +1,13 @@
+.auth-content { --background: var(--app-bg); }
+.auth-content::part(scroll) {
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 16px 16px calc(16px + var(--footer-height));
+}
+.card {
+  width: 100%; max-width: 440px; background: #fff; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08); padding: 20px; margin: 24px 0;
+}
+.card h2 { margin: 0 0 6px; text-align: center; color: var(--app-text); }
+.card p  { margin: 0 0 16px; text-align: center; color: color-mix(in srgb, var(--app-text) 65%, #fff); }
+.mt { margin-top: 12px; }
+.note { display: block; text-align: center; font-size: .86rem; }

@@ -85,9 +85,9 @@ WSGI_APPLICATION = 'api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', ''),             #AGREGAR
-        'USER': os.getenv('DB_USER', ''),                   #AGREGAR
-        'PASSWORD': os.getenv('DB_PASS', ''),         #AGREGAR
+        'NAME': os.getenv('DB_NAME', 'cambioteca'),           
+        'USER': os.getenv('DB_USER', 'root'),                  
+        'PASSWORD': os.getenv('DB_PASS', 'Potopoto1.'),         
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),             
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
@@ -136,11 +136,36 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+
+
+# settings.py
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
+
+
 # Permitir llamadas desde Ionic (dev)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8100",
     "http://127.0.0.1:8100",
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+# SimpleJWT (opcional: ajustar expiraciones)
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+}
+
 # Si usas fetch con credenciales:
 CORS_ALLOW_CREDENTIALS = True
 
@@ -156,3 +181,21 @@ ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+# Email (Mailtrap Sandbox)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+                  # prueba 587; si falla, 2525; si falla, 25
+EMAIL_HOST_USER = "cambioteca.cl@gmail.com"        # p.ej. 4d1b02e80b8267
+EMAIL_HOST_PASSWORD = "sdjv dngt fhwx jyba".replace(" ", "")   # p.ej. ****abb8
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # en sandbox vale cualquiera
+FRONTEND_RESET_URL = "http://localhost:8100/auth/reset"
+
+
+
+

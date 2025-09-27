@@ -1,0 +1,132 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Añadir libro</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="page-content">
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <ion-list lines="full" class="form-list">
+
+      <ion-item>
+        <ion-label position="stacked">Título *</ion-label>
+        <ion-input formControlName="titulo" placeholder="Ej: Cien años de soledad"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('titulo')?.touched && form.get('titulo')?.invalid">
+        Título es obligatorio (mín. 2 caracteres).
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Autor *</ion-label>
+        <ion-input formControlName="autor" placeholder="Ej: Gabriel García Márquez"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('autor')?.touched && form.get('autor')?.invalid">
+        Autor es obligatorio (mín. 2 caracteres).
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">ISBN *</ion-label>
+        <ion-input formControlName="isbn" placeholder="978..." ></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('isbn')?.touched && form.get('isbn')?.errors?.['isbnLength']">
+        El ISBN debe tener 10 o 13 dígitos (se ignoran guiones/espacios).
+      </ion-note>
+      <ion-note color="danger" *ngIf="form.get('isbn')?.touched && form.get('isbn')?.errors?.['required']">
+        ISBN es obligatorio.
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Año publicación *</ion-label>
+        <ion-input
+          type="number"
+          formControlName="anio_publicacion"
+          (ionChange)="toNumber('anio_publicacion')">
+        </ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('anio_publicacion')?.touched && form.get('anio_publicacion')?.errors?.['min']">
+        El año no puede ser menor que 1800.
+      </ion-note>
+      <ion-note color="danger" *ngIf="form.get('anio_publicacion')?.touched && form.get('anio_publicacion')?.errors?.['max']">
+        El año no puede ser mayor que {{ currentYear }}.
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Editorial *</ion-label>
+        <ion-input formControlName="editorial"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('editorial')?.touched && form.get('editorial')?.invalid">
+        Editorial es obligatoria.
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Género *</ion-label>
+        <ion-input formControlName="genero" placeholder="Fantasía, Romance, ..."></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('genero')?.touched && form.get('genero')?.invalid">
+        Género es obligatorio.
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Tipo de tapa *</ion-label>
+        <ion-select formControlName="tipo_tapa" interface="popover">
+          <ion-select-option *ngFor="let t of tapas" [value]="t">{{ t }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="stacked">Estado *</ion-label>
+        <ion-select formControlName="estado" interface="popover">
+          <ion-select-option *ngFor="let e of estados" [value]="e">{{ e }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="stacked">Descripción *</ion-label>
+        <ion-textarea
+          formControlName="descripcion"
+          rows="5"
+          autoGrow="true"
+          placeholder="Breve descripción del estado, edición, notas…">
+        </ion-textarea>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('descripcion')?.touched && form.get('descripcion')?.invalid">
+        Descripción es obligatoria (mín. 10 caracteres).
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Imágenes</ion-label>
+        <input type="file" accept="image/*" multiple (change)="onSelectFiles($event)" />
+      </ion-item>
+
+      <!-- previews -->
+      <div class="previews" *ngIf="previews.length">
+        <div class="thumb" *ngFor="let src of previews; let i = index" (click)="setCover(i)">
+          <img [src]="src" [alt]="'img '+(i+1)" />
+          <div class="badge" [class.active]="i === coverIndex">
+            {{ i === coverIndex ? 'Portada' : 'Elegir portada' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <ion-button expand="block" type="submit" [disabled]="form.invalid || sending">
+          <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+          Publicar libro
+        </ion-button>
+      </div>
+
+      <!-- DEBUG (puedes quitarlo cuando todo funcione) -->
+      <div style="font-size:12px;color:#666;margin:8px 0">
+        Form status: {{ form.status }} |
+        Invalidos:
+        <ng-container *ngFor="let c of formInvalidControls()">{{ c }} </ng-container>
+      </div>
+
+      <!-- separador para no tapar con la tabbar/footer -->
+      <div class="bottom-spacer"></div>
+    </ion-list>
+  </form>
+</ion-content>

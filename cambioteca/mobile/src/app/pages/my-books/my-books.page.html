@@ -1,0 +1,94 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Mis libros</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <ng-container *ngIf="!loading(); else skeleton">
+    <ng-container *ngIf="books().length; else empty">
+      <ion-list inset="true">
+        <ion-item
+          *ngFor="let b of books(); trackBy: trackById"
+          lines="full"
+          button="true"
+          detail="true"
+          class="book-item"
+          [routerLink]="['/my-books', b.id]"
+          (click)="onItemClick($event)"
+        >
+          <ion-thumbnail slot="start" class="thumb-portrait">
+            <img
+              [ngSrc]="b.first_image || '/media/books/librodefecto.png'"
+              [fill]="true"
+              alt="portada"
+              (error)="onImgError($event)"
+            />
+          </ion-thumbnail>
+
+          <ion-label>
+            <h2 class="ttl">{{ b.titulo }}</h2>
+            <p class="muted">de {{ b.autor }}</p>
+            <p class="muted">Editorial: {{ b.editorial }} · {{ b.tipo_tapa }}</p>
+            <p class="muted">Género: {{ b.genero }}</p>
+            <p class="desc">{{ b.descripcion }}</p>
+
+            <div class="meta">
+              <ion-badge [color]="b.disponible ? 'success' : 'medium'">
+                {{ b.disponible ? 'Disponible' : 'No disponible' }}
+              </ion-badge>
+
+              <ion-chip color="primary" outline="true" class="estado">
+                <ion-icon name="pricetag-outline"></ion-icon>
+                <ion-label>{{ b.estado }}</ion-label>
+              </ion-chip>
+
+              <ion-note class="comuna" *ngIf="b.comuna_nombre">
+                <ion-icon name="location-outline"></ion-icon>
+                {{ b.comuna_nombre }}
+              </ion-note>
+
+              <ion-note class="fecha">
+                <ion-icon name="time-outline"></ion-icon>
+                {{ b.fecha_subida | date:'medium' }}
+              </ion-note>
+
+              <ion-badge *ngIf="b.has_new_requests" color="warning">
+                Nuevas solicitudes
+              </ion-badge>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </ng-container>
+  </ng-container>
+
+  <ng-template #skeleton>
+    <ion-list inset="true">
+      <ion-item *ngFor="let i of [1,2,3,4]" lines="full">
+        <ion-thumbnail slot="start" class="thumb-portrait">
+          <ion-skeleton-text [animated]="true" style="width:100%;height:100%"></ion-skeleton-text>
+        </ion-thumbnail>
+        <ion-label>
+          <h2><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h2>
+          <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
+          <p><ion-skeleton-text [animated]="true" style="width:80%"></ion-skeleton-text></p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </ng-template>
+
+  <ng-template #empty>
+    <div class="empty">
+      <ion-icon name="library-outline"></ion-icon>
+      <h3>Aún no has subido libros</h3>
+      <p>Cuando agregues tus libros, aparecerán aquí.</p>
+    </div>
+  </ng-template>
+</ion-content>
+

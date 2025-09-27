@@ -1,3 +1,5 @@
+#market models.py
+
 from django.db import models
 
 # Referencias entre apps por string:
@@ -10,11 +12,12 @@ class Libro(models.Model):
     anio_publicacion = models.PositiveSmallIntegerField()
     autor = models.CharField(max_length=255)
     estado = models.CharField(max_length=20)
-    fecha_compra = models.DateField()
     descripcion = models.TextField()
     editorial = models.CharField(max_length=255)
     genero = models.CharField(max_length=100)
     tipo_tapa = models.CharField(max_length=20)
+    disponible = models.BooleanField(default=True)   # mapea a TINYINT(1)
+    fecha_subida = models.DateTimeField(auto_now_add=True, db_column='fecha_subida')
 
     # Acceso desde Usuario: usuario.libros.all()
     id_usuario = models.ForeignKey(
@@ -51,6 +54,12 @@ class Clasificacion(models.Model):
         db_column='id_usuario_calificado',
         on_delete=models.DO_NOTHING,
         related_name='clasificaciones_recibidas'
+    )
+
+    id_intercambio = models.ForeignKey(
+        'market.Intercambio', db_column='id_intercambio',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='calificaciones'
     )
 
     class Meta:
@@ -90,8 +99,7 @@ class Favorito(models.Model):
 
 class ImagenLibro(models.Model):
     id_imagen = models.AutoField(primary_key=True)
-    # Dejá CharField si no querés depender de Pillow. Si más adelante usás ImageField,
-    # instala Pillow y cambiá el tipo.
+    # Dejá CharField si no querés depender de Pillow.
     url_imagen = models.CharField(max_length=255, null=True, blank=True)
     descripcion = models.CharField(max_length=255, null=True, blank=True)
 
@@ -102,6 +110,11 @@ class ImagenLibro(models.Model):
         on_delete=models.DO_NOTHING,
         related_name='imagenes'
     )
+
+    # IMPORTANTE: refleja que la columna en BD no acepta NULL
+    orden = models.PositiveIntegerField(default=0, db_column='orden')
+    is_portada = models.BooleanField(default=False, db_column='is_portada')
+    created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
 
     class Meta:
         db_table = 'imagen_libro'
@@ -197,3 +210,22 @@ class Mensaje(models.Model):
 
     def __str__(self):
         return f"Msg #{self.id_mensaje} — Intercambio {self.id_intercambio_id}"
+
+
+class LibroSolicitudesVistas(models.Model):
+    id = models.AutoField(primary_key=True)
+    id_usuario = models.ForeignKey(
+        'core.Usuario', db_column='id_usuario',
+        on_delete=models.CASCADE, related_name='libros_solicitudes_vistas'
+    )
+    id_libro = models.ForeignKey(
+        'market.Libro', db_column='id_libro',
+        on_delete=models.CASCADE, related_name='solicitudes_vistas_por'
+    )
+    ultimo_visto_id_intercambio = models.IntegerField(default=0)
+    visto_por_ultima_vez = models.DateTimeField()
+
+    class Meta:
+        db_table = 'libro_solicitudes_vistas'
+        managed = False
+        unique_together = (('id_usuario', 'id_libro'),)

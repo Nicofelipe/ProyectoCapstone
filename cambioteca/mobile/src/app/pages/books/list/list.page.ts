@@ -1,7 +1,13 @@
+//pages/books/list/list.page.ts
+
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonContent, IonHeader, IonItem, IonLabel, IonList, IonSearchbar, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  IonButtons, IonContent, IonHeader, IonItem, IonLabel, IonList,
+  IonMenuButton, IonSearchbar, IonTitle, IonToolbar
+} from '@ionic/angular/standalone';
 import { BooksService, Libro } from '../../../core/services/books.service';
 
 @Component({
@@ -10,26 +16,39 @@ import { BooksService, Libro } from '../../../core/services/books.service';
   imports: [
     CommonModule, FormsModule,
     IonHeader, IonToolbar, IonTitle, IonContent,
-    IonSearchbar, IonList, IonItem, IonLabel
+    IonButtons, IonMenuButton,
+    IonSearchbar, IonList, IonItem, IonLabel,
+    RouterLink, RouterLinkActive
   ],
   templateUrl: './list.page.html',
-  styleUrls: ['./list.page.scss']
+  styleUrls: ['./list.page.scss'],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class ListPage implements OnInit { 
+export class ListPage implements OnInit {
   q = '';
   loading = false;
   items: Libro[] = [];
 
-  constructor(private booksSvc: BooksService) {}
+  constructor(private booksSvc: BooksService, private router: Router) { }
   ngOnInit() { this.load(); }
 
   load() {
     this.loading = true;
-    this.booksSvc.list(this.q).subscribe({
-      next: (data) => { this.items = data; this.loading = false; },
+    this.booksSvc.listDistinct(this.q).subscribe({
+      next: data => { this.items = data; this.loading = false; },
       error: () => { this.loading = false; }
     });
   }
 
-  search() { this.load(); }
+  openTitle(title: string) {
+    this.router.navigate(['/books/by-title', encodeURIComponent(title)]);
+  }
+
+  search() {
+    this.loading = true;
+    this.booksSvc.listDistinct(this.q).subscribe({
+      next: data => { this.items = data; this.loading = false; },
+      error: () => { this.loading = false; }
+    });
+  }
 }

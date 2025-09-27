@@ -1,13 +1,48 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>login</ion-title>
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Iniciar sesión</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">login</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content [fullscreen]="true" class="login-content">
+  <div class="card">
+    <h2>Bienvenido</h2>
+    <p>Ingresa con tu correo y contraseña.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <ion-item fill="solid">
+        <ion-icon name="mail-outline" slot="start"></ion-icon>
+        <ion-input type="email" label="Correo" labelPlacement="floating" formControlName="email" inputmode="email"
+          autocomplete="email">
+        </ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+        Ingresa un correo válido.
+      </ion-note>
+
+      <ion-item fill="solid" class="mt">
+        <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+        <ion-input type="password" label="Contraseña" labelPlacement="floating" formControlName="password"
+          autocomplete="current-password">
+        </ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+        La contraseña es obligatoria.
+      </ion-note>
+
+      <ion-button expand="block" class="mt" type="submit">Entrar</ion-button>
+    </form>
+
+    <div class="hint">
+      <a routerLink="/auth/forgot">¿Olvidaste tu contraseña?</a>
+    </div>
+
+    <div class="hint">
+      ¿No tienes cuenta?
+      <a routerLink="/auth/register">Crear cuenta</a>
+    </div>
+  </div>
 </ion-content>

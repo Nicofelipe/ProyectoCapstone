@@ -1,13 +1,181 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>register</ion-title>
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Crear cuenta</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">register</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content class="auth-content">
+  <div class="card">
+    <h2>Registro</h2>
+    <p>Completa tus datos para unirte a Cambioteca.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <ion-list lines="none">
+
+        <ion-item fill="solid">
+          <ion-input label="RUT" labelPlacement="floating" formControlName="rut"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="danger" *ngIf="f.rut.touched && f.rut.invalid">
+          Formato: 12345678-9 o 12345678-K
+        </ion-note>
+
+        <ion-item fill="solid" class="mt">
+          <ion-input label="Nombres" labelPlacement="floating" formControlName="nombres"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="danger" *ngIf="f.nombres.touched && f.nombres.invalid">
+          Solo letras y espacios.
+        </ion-note>
+
+        <div class="row-2">
+          <ion-item fill="solid">
+            <ion-input label="Apellido paterno" labelPlacement="floating" formControlName="apellido_paterno"></ion-input>
+          </ion-item>
+          <ion-item fill="solid">
+            <ion-input label="Apellido materno" labelPlacement="floating" formControlName="apellido_materno"></ion-input>
+          </ion-item>
+        </div>
+        <ion-note class="form-note" color="danger"
+          *ngIf="(f.apellido_paterno.touched && f.apellido_paterno.invalid) || (f.apellido_materno.touched && f.apellido_materno.invalid)">
+          Solo letras y espacios.
+        </ion-note>
+
+        <ion-item fill="solid" class="mt">
+          <ion-input label="Usuario" labelPlacement="floating" formControlName="nombre_usuario"></ion-input>
+        </ion-item>
+
+        <!-- Correo -->
+        <ion-item fill="solid" class="mt">
+          <ion-input type="email" label="Correo" labelPlacement="floating"
+                     formControlName="email" autocomplete="email"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="danger" *ngIf="f.email.touched && f.email.invalid">
+          Correo inválido.
+        </ion-note>
+
+        <!-- Confirmar correo -->
+        <ion-item fill="solid">
+          <ion-input type="email" label="Confirmar correo" labelPlacement="floating"
+                     formControlName="email2" autocomplete="email"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="danger"
+          *ngIf="(f.email2.touched && f.email2.invalid) || emailMismatch">
+          {{ emailMismatch ? 'Los correos no coinciden.' : 'Correo inválido.' }}
+        </ion-note>
+
+        <div class="row-2">
+          <ion-item fill="solid">
+            <ion-input type="tel" label="Teléfono" labelPlacement="floating"
+                       formControlName="telefono" inputmode="tel"></ion-input>
+          </ion-item>
+        </div>
+        <ion-note class="form-note" color="danger" *ngIf="f.telefono.touched && f.telefono.invalid">
+          Teléfono: 7–12 dígitos (números).
+        </ion-note>
+
+        <ion-item fill="solid" class="mt">
+          <ion-input label="Dirección" labelPlacement="floating" formControlName="direccion"></ion-input>
+        </ion-item>
+
+        <div class="row-2">
+          <ion-item fill="solid">
+            <ion-input label="Numeración" labelPlacement="floating" formControlName="numeracion"></ion-input>
+          </ion-item>
+        </div>
+        <ion-note class="form-note" color="danger" *ngIf="f.numeracion.touched && f.numeracion.invalid">
+          Numeración máx 10 (números/letras).
+        </ion-note>
+
+        <div class="row-2">
+          <ion-item fill="solid">
+            <ion-select label="Región" labelPlacement="floating" interface="popover"
+                        formControlName="region"
+                        (ionChange)="onRegionChange($event.detail.value)">
+              <ion-select-option *ngFor="let r of regiones" [value]="r.id_region">{{ r.nombre }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <ion-item fill="solid">
+            <ion-select label="Comuna" labelPlacement="floating" interface="popover" formControlName="comuna">
+              <ion-select-option *ngFor="let c of comunas" [value]="c.id_comuna">{{ c.nombre }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+        </div>
+
+        <!-- Contraseña -->
+        <ion-item fill="solid" class="mt">
+          <ion-input type="password" label="Contraseña" labelPlacement="floating"
+                     formControlName="contrasena" autocomplete="new-password"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="medium">
+          Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo.
+        </ion-note>
+        <ion-note class="form-note" color="danger" *ngIf="f.contrasena.touched && f.contrasena.invalid">
+          Contraseña no cumple los requisitos.
+        </ion-note>
+
+        <!-- Confirmar contraseña -->
+        <ion-item fill="solid">
+          <ion-input type="password" label="Confirmar contraseña" labelPlacement="floating"
+                     formControlName="contrasena2" autocomplete="new-password"></ion-input>
+        </ion-item>
+        <ion-note class="form-note" color="danger"
+          *ngIf="(f.contrasena2.touched && f.contrasena2.invalid) || pwdMismatch">
+          {{ pwdMismatch ? 'Las contraseñas no coinciden.' : 'Contraseña inválida.' }}
+        </ion-note>
+
+        <!-- Imagen (opcional) -->
+        <div class="avatar-card">
+          <div class="avatar-left">
+            <ion-avatar class="avatar">
+              <img *ngIf="previewUrl; else placeholder" [src]="previewUrl" alt="preview" />
+            </ion-avatar>
+            <ng-template #placeholder>
+              <ion-avatar class="avatar placeholder">
+                <ion-icon name="person-circle-outline"></ion-icon>
+              </ion-avatar>
+            </ng-template>
+
+            <!-- X flotante para quitar -->
+            <button class="remove-btn" *ngIf="previewUrl" type="button" (click)="removeImage(fileInput)">
+              <ion-icon name="close-circle"></ion-icon>
+            </button>
+          </div>
+
+          <div class="avatar-right">
+            <div class="caption">Imagen de perfil (opcional)</div>
+
+            <input #fileInput type="file" accept="image/*"
+                   class="visually-hidden" (change)="onFileSelected($event)" />
+
+            <div class="upload-actions">
+              <ion-button size="small" fill="outline" type="button" (click)="onPickImage(fileInput)">
+                <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+                Subir imagen
+              </ion-button>
+
+              <ion-button size="small" fill="clear" color="danger"
+                          *ngIf="previewUrl" type="button" (click)="removeImage(fileInput)">
+                <ion-icon slot="start" name="trash-outline"></ion-icon>
+                Quitar
+              </ion-button>
+            </div>
+
+            <div class="filename" *ngIf="selectedFile">{{ selectedFile.name }}</div>
+          </div>
+        </div>
+
+        <ion-button expand="block" class="mt" type="submit" [disabled]="form.invalid || busy">
+          {{ busy ? 'Creando cuenta...' : 'Crear cuenta' }}
+        </ion-button>
+      </ion-list>
+    </form>
+
+    <div class="hint">
+      ¿Ya tienes cuenta?
+      <a routerLink="/auth/login">Inicia sesión</a>
+    </div>
+  </div>
 </ion-content>

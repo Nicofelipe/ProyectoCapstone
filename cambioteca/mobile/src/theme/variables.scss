@@ -1,51 +1,57 @@
 :root {
   /* ===== Paleta Cambioteca ===== */
-  --app-menu-bg: #896C6C;   /* menú lateral oscuro */
-  --app-accent: #E4BDB4;    /* hover / selección */
-  --app-muted: #BEBBA1;     /* detalles */
-  --app-text: #2b2b2b;      /* texto general */
-  --app-bg: #ffffff;        /* fondo principal */
+  --app-menu-bg: #f3ded9;          /* fondo del menú */
+  --app-accent:   #aa9797;          /* hover / selección / toolbar */
+  --app-muted:    #fffaf3;/* detalles suaves (p.ej. searchbar) */
+  --app-text:     #2b2b2b;          /* texto general */
+  --app-bg:       #f4f4f2;          /* fondo principal */
 
   /* Ionic base */
-  --ion-background-color: var(--app-bg);   /* 👈 contenido SIEMPRE blanco */
+  --ion-background-color: var(--app-bg);
   --ion-text-color: var(--app-text);
 
-  --ion-color-primary: var(--app-menu-bg);
+  --ion-color-primary: #aa9797;
   --ion-color-primary-contrast: #ffffff;
   --ion-color-secondary: var(--app-accent);
   --ion-color-secondary-contrast: #2b2b2b;
 }
 
-/* ===== MENÚ lateral ===== */
+/* Toolbar en color primario */
+:root {
+  --ion-toolbar-background: #aa9797;
+  --ion-toolbar-color: #ffffff;
+}
+
+/* ===== MENÚ lateral (se respeta tu estilo) ===== */
 ion-menu {
   --background: var(--app-menu-bg);
-  color: #fff;
+  color: #2b2b2b;
 
   ion-toolbar {
     --background: var(--app-menu-bg);
-    --color: #fff;
+    --color: #2b2b2b;
     border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   }
 
   ion-content,
   ion-list {
-    --background: var(--app-menu-bg);  /* 👈 fondo oscuro solo del menú */
-    color: #fff;
+    --background: var(--app-menu-bg);
+    color: #E4BDB4;
   }
 
   ion-item {
-    --background: transparent;
-    --color: #fff;
+    --background: var(--app-menu-bg);
+    --color: #2b2b2b;
 
     &:hover {
       --background: var(--app-accent);
-      --color: #2b2b2b;
+      --color: #ffffff;
     }
 
     &.activated,
     &.item-active {
       --background: var(--app-accent);
-      --color: #2b2b2b;
+      --color: #ffffff;
     }
   }
 

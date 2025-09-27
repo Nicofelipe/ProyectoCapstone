@@ -1,7 +1,7 @@
 .hero {
   text-align: center;
   padding: 32px 16px 24px;
-  background: #fff;   /* 👈 fondo blanco */
+  background: #fff;
   border-radius: 0 0 24px 24px;
   box-shadow: 0 2px 6px rgba(0,0,0,.08);
 
@@ -10,8 +10,8 @@
     height: auto;
     margin: 12px auto 16px;
     display: block;
-    border-radius: 0;   /* 👈 sin esquinas redondeadas, logo tal cual */
-    box-shadow: none;   /* 👈 sin sombra extra en el logo */
+    border-radius: 0;
+    box-shadow: none;
   }
 
   h2 {
@@ -27,7 +27,7 @@
   }
 
   ion-searchbar {
-    --background: var(--app-muted);   /* 👈 verde de tu paleta */
+    --background: var(--app-muted);
     --color: var(--app-text);
     --placeholder-color: color-mix(in srgb, var(--app-text) 60%, #fff);
     --border-radius: 12px;
@@ -36,11 +36,10 @@
   }
 }
 
-
 .block {
   padding: 16px 12px;
   margin: 16px 0;
-  background: #fff;              /* 👈 cada bloque blanco sobre fondo muted */
+  background: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0,0,0,.05);
 
@@ -48,16 +47,85 @@
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 8px;
     h3 { margin: 0; font-size: 1.7rem; font-weight: 600; color: var(--app-text); }
+    ion-spinner { margin-left: 8px; }
   }
 
-  p { text-align: justify; line-height: 1.5; color: var(--app-text); }
+  p { text-align: center; line-height: 1.5; color: var(--app-text); }
 }
 
-/* Redes sociales: darle otro fondo suave */
-.block.social {
-  background: var(--app-muted);   /* 👈 contraste con los otros bloques */
+/* ====== Tarjetas del carrusel ====== */
+swiper-container {
+  --swiper-pagination-color: var(--ion-color-primary);
+}
+
+swiper-slide {
+  /* para que la tarjeta no se pegue a los bordes */
+  padding: 2px 0;
+}
+
+ion-card {
   border-radius: 16px;
-  padding: 20px 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  overflow: hidden;
 
-  h3 { margin-bottom: 12px; color: var(--app-text); }
+  ion-card-header {
+    padding-bottom: 6px;
+
+    ion-card-title {
+      text-align: center;               /* lo mantenemos centrado */
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--app-text);
+    }
+
+    ion-card-subtitle {
+      text-align: center;
+      margin: 4px 0 6px;
+      font-size: 0.9rem;
+      color: var(--ion-color-medium);
+      font-weight: 500;
+    }
+  }
+
+  ion-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 0.25rem;
+    .muted{
+      font-size: .65em;
+      text-align: right;
+    }
+  }
+
+  /* fila de chips (género + uploader) */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+
+    ion-chip {
+      --background: #f5f7f7;
+      --color: var(--app-text);
+      font-weight: 500;
+
+      ion-icon {
+        margin-right: 4px;
+      }
+    }
+  }
+
+  /* fecha pequeña, discreta y alineada a la derecha */
+  .fecha-subida {
+    margin: 0;
+    padding: 2px 2px 0 0;
+    font-size: 0.75rem;
+    color: var(--ion-color-medium);
+    text-align: right;
+  }
 }
+
+/* Centrar títulos en tarjetas (ya aplicado arriba, lo dejamos por compat) */
+ion-card-title { text-align: center; }
+ion-card-subtitle { margin: 4px 0 6px; }

@@ -1,8 +1,6 @@
+// src/app/core/services/api.service.ts
 import {
-  HttpClient,
-  HttpContext,
-  HttpHeaders,
-  HttpParams,
+  HttpClient, HttpContext, HttpHeaders, HttpParams,
 } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -10,7 +8,6 @@ import { environment } from '../../../environments/environment';
 
 type PlainParams = Record<string, string | number | boolean | null | undefined>;
 
-/** Opciones que acepta tu capa (sin 'observe' para no inducir otros overloads) */
 interface JsonHttpOptions {
   headers?: HttpHeaders | Record<string, string | string[]>;
   params?: HttpParams | PlainParams;
@@ -19,7 +16,6 @@ interface JsonHttpOptions {
   context?: HttpContext;
 }
 
-/** Opciones normalizadas que exige HttpClient para body+json */
 type JsonOptionsRequired = {
   headers?: HttpHeaders | Record<string, string | string[]>;
   params?: HttpParams;
@@ -41,7 +37,6 @@ export default class ApiService {
     return this.base + p;
   }
 
-  /** Convierte params planos a HttpParams y fija los literales json/body */
   private normalizeOptions(options?: JsonHttpOptions): JsonOptionsRequired {
     let params: HttpParams | undefined;
 
@@ -67,30 +62,43 @@ export default class ApiService {
     };
   }
 
+  /** Convierte headers (si vienen como Record) a HttpHeaders */
+  private asHttpHeaders(h?: HttpHeaders | Record<string, string | string[]>): HttpHeaders | undefined {
+    if (!h) return undefined;
+    return h instanceof HttpHeaders ? h : new HttpHeaders(h);
+  }
+
+  /** Si el body es FormData, elimina Content-Type (el browser pondrá boundary correcto) */
+  private optionsForBody(body: any, options?: JsonHttpOptions): JsonOptionsRequired {
+    const base = this.normalizeOptions(options);
+    if (body instanceof FormData) {
+      const current = this.asHttpHeaders(base.headers);
+      const headers = current ? current.delete('Content-Type') : undefined;
+      return { ...base, headers };
+    }
+    return base;
+  }
+
   get<T>(path: string, options?: JsonHttpOptions): Observable<T> {
     return this.http.get<T>(this.buildUrl(path), this.normalizeOptions(options));
   }
 
+  patch<T>(path: string, body: any, options?: JsonHttpOptions): Observable<T> {
+    const opts = this.optionsForBody(body, options);
+    return this.http.patch<T>(this.buildUrl(path), body, opts);
+  }
+
   post<T>(path: string, body: any, options?: JsonHttpOptions): Observable<T> {
-    return this.http.post<T>(
-      this.buildUrl(path),
-      body,
-      this.normalizeOptions(options),
-    );
+    const opts = this.optionsForBody(body, options);
+    return this.http.post<T>(this.buildUrl(path), body, opts);
   }
 
   put<T>(path: string, body: any, options?: JsonHttpOptions): Observable<T> {
-    return this.http.put<T>(
-      this.buildUrl(path),
-      body,
-      this.normalizeOptions(options),
-    );
+    const opts = this.optionsForBody(body, options);
+    return this.http.put<T>(this.buildUrl(path), body, opts);
   }
 
   delete<T>(path: string, options?: JsonHttpOptions): Observable<T> {
-    return this.http.delete<T>(
-      this.buildUrl(path),
-      this.normalizeOptions(options),
-    );
+    return this.http.delete<T>(this.buildUrl(path), this.normalizeOptions(options));
   }
 }

@@ -1,4 +1,24 @@
 from django.db import models
+# core/models.py
+from django.utils import timezone
+from datetime import timedelta
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey('core.Usuario', on_delete=models.CASCADE, related_name='reset_tokens')
+    token = models.CharField(max_length=128, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'password_reset_token'  # coincide con la tabla creada
+
+    @property
+    def is_expired(self) -> bool:
+        # vence en 24h (ajusta si quieres)
+        return self.created_at < timezone.now() - timedelta(hours=24)
+
+    def __str__(self):
+        return f"{self.user_id} - {self.token[:8]}..."
 
 
 class Region(models.Model):

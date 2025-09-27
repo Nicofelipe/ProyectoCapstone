@@ -1,0 +1,21 @@
+/* src/app/pages/books/list/list.page.scss */
+
+/* Deja hueco para el footer global (mismo truco que en home) */
+.with-footer {
+  --padding-bottom: calc(var(--footer-height, 100px) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--padding-bottom);
+}
+
+/* Opcional: ajustes visuales */
+ion-searchbar {
+  margin: 12px;
+  --background: var(--app-muted);
+  --border-radius: 12px;
+}
+ion-item h2 {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.title-link { cursor: pointer; text-decoration: underline; }
+

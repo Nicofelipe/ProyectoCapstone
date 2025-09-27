@@ -1,0 +1,43 @@
+/* Fondo del content */
+.login-content {
+  --background: var(--app-bg);
+}
+
+/* 👇 Centrar el contenido REAL del ion-content */
+.login-content::part(scroll) {
+  min-height: 100vh;              /* ocupa toda la pantalla */
+  display: flex;                  /* flex para centrar */
+  align-items: center;            /* centro vertical */
+  justify-content: center;        /* centro horizontal */
+  padding: 16px;                  /* respirito lateral */
+}
+
+/* La tarjeta */
+.card {
+  width: 100%;
+  max-width: 440px;               /* ajusta a gusto (420–480px) */
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  padding: 20px;
+}
+
+.card h2 {
+  margin: 0 0 6px;
+  text-align: center;
+  color: var(--app-text);
+}
+
+.card p {
+  margin: 0 0 16px;
+  text-align: center;
+  color: color-mix(in srgb, var(--app-text) 65%, #fff);
+}
+
+.mt { margin-top: 12px; }
+
+.hint {
+  margin-top: 14px;
+  text-align: center;
+}
+.hint a { color: var(--ion-color-primary); }
