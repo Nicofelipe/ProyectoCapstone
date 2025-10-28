@@ -1,0 +1,92 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Perfil de usuario</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="profile-content">
+  <div class="card" *ngIf="!loading(); else skel">
+    <ng-container *ngIf="prof() as u">
+      <!-- HEADER -->
+      <div class="header">
+        <ion-avatar class="avatar">
+          <img [src]="u.avatar_url || '/assets/avatardefecto.jpg'" alt="avatar" />
+        </ion-avatar>
+        <div class="id">
+          <h2>{{ u.nombre_completo }}</h2>
+          <p class="email">{{ u.email }}</p>
+          
+          <div class="metrics">
+            <div class="metric"><div class="v">{{ u.libros_count }}</div><div class="k">Libros</div></div>
+            <div class="metric"><div class="v">{{ u.intercambios_count }}</div><div class="k">Intercambios</div></div>
+            <div class="metric">
+              <div class="stars">
+                <ion-icon *ngFor="let s of stars()" [name]="s"></ion-icon>
+              </div>
+              <div class="k">Calificación</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABS (idénticas a Profile) -->
+      <div class="tabs">
+        <button [class.active]="tab()==='info'"    (click)="tab.set('info')">Información</button>
+        <button [class.active]="tab()==='books'"   (click)="tab.set('books')">Libros</button>
+        <button [class.active]="tab()==='history'" (click)="tab.set('history')">Historial</button>
+      </div>
+
+      <!-- INFO -->
+      <div class="tab-pane" *ngIf="tab()==='info'">
+        <ion-list lines="none">
+          <ion-item><ion-label><h3>Nombre</h3><p>{{ u.nombre_completo }}</p></ion-label></ion-item>
+          <ion-item><ion-label><h3>Correo</h3><p>{{ u.email }}</p></ion-label></ion-item>
+          <ion-item *ngIf="u.rut"><ion-label><h3>RUT</h3><p>{{ u.rut }}</p></ion-label></ion-item>
+        </ion-list>
+      </div>
+
+      <!-- BOOKS -->
+      <div class="tab-pane" *ngIf="tab()==='books'">
+        <ion-list *ngIf="books()?.length; else nobooks" class="books-list" lines="full">
+          <ion-item button detail="true" *ngFor="let b of books()" (click)="goBook(b.id)">
+            <ion-avatar slot="start" class="thumb"><img [src]="b.portada || '/assets/librodefecto.png'"></ion-avatar>
+            <ion-label>
+              <div class="body">
+                <div class="title">
+                  <h3 class="ttl">{{ b.titulo }}</h3>
+                </div>
+                <p class="author muted">{{ b.autor }}</p>
+                <div class="meta" *ngIf="b.fecha_subida">
+                  <span class="date"><ion-icon name="time-outline"></ion-icon> {{ b.fecha_subida | date:'mediumDate' }}</span>
+                </div>
+              </div>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+        <ng-template #nobooks><p class="muted">Este usuario no tiene libros disponibles.</p></ng-template>
+      </div>
+
+      <!-- HISTORY (SIN IMÁGENES) -->
+      <div class="tab-pane" *ngIf="tab()==='history'">
+        <ion-list *ngIf="history()?.length; else nohist" lines="full">
+          <ion-item *ngFor="let it of history()">
+            <ion-label>
+              <h3>{{ it.libro_ofrecido?.titulo || '—' }} ↔ {{ it.libro_deseado?.titulo || '—' }}</h3>
+              <p>{{ it.estado }} · {{ it.fecha_intercambio | date:'short' }}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+        <ng-template #nohist><p class="muted">Sin intercambios registrados.</p></ng-template>
+      </div>
+    </ng-container>
+  </div>
+
+  <ng-template #skel>
+    <ion-skeleton-text [animated]="true" style="width: 80%; height: 140px;"></ion-skeleton-text>
+  </ng-template>
+</ion-content>

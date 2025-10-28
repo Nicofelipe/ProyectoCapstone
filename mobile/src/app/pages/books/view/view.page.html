@@ -1,0 +1,150 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ book?.titulo || 'Publicación' }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ng-container *ngIf="book as b; else loadingTpl">
+    <!-- Carrusel -->
+    <div #gallery class="snap-gallery" (scroll)="onScroll(gallery)">
+      <img *ngFor="let url of imgUrls; trackBy: trackByIndex" [src]="url" [alt]="b.titulo || 'Imagen del libro'"
+        (error)="onImgError($event)" />
+    </div>
+
+    <!-- Dots -->
+    <div class="dots" *ngIf="imgUrls.length > 1">
+      <button type="button" *ngFor="let _ of imgUrls; let i = index; trackBy: trackByIndex"
+        [class.active]="i === currentIndex" (click)="scrollTo(i, gallery)"
+        [attr.aria-label]="'Ir a imagen ' + (i + 1)"></button>
+    </div>
+
+    <ion-list lines="none">
+      <ion-item>
+        <ion-label>
+          <h1 style="margin:0 0 6px">{{ b.titulo }}</h1>
+          <p style="margin:0">de {{ b.autor }}</p>
+          <p style="margin:6px 0 0">
+            Estado: {{ b.estado || '—' }} • {{ b.fecha_subida | date:'mediumDate' }}
+          </p>
+        </ion-label>
+      </ion-item>
+
+      <ion-item>
+        <ion-label>
+          <div class="owner-line">
+            <strong>@{{ owner?.nombre_usuario || b.owner_nombre || '—' }}</strong>
+            <span class="rating" *ngIf="owner?.rating_avg != null">
+              • ★ {{ owner?.rating_avg | number:'1.1-1' }} ({{ owner?.rating_count }})
+            </span>
+            <span class="rating" *ngIf="isMine()">• este libro es de tu propiedad</span>
+            <span class="rating" *ngIf="!b.disponible && !isMine()">• no disponible</span>
+          </div>
+        </ion-label>
+      </ion-item>
+
+      <ion-item *ngIf="b.descripcion">
+        <ion-label [innerText]="b.descripcion"></ion-label>
+      </ion-item>
+    </ion-list>
+
+    <!-- CTA dinámica -->
+    <div class="cta" *ngIf="book as b">
+      <!-- libro propio -->
+      <ion-button expand="block" color="medium" [disabled]="true" *ngIf="isMine()">
+        LIBRO EN PROPIEDAD
+      </ion-button>
+
+      <!-- no disponible (libro ajeno) -->
+      <ion-button expand="block" color="medium" [disabled]="true" *ngIf="!isMine() && !b.disponible">
+        No disponible
+      </ion-button>
+
+      <!-- no logueado -->
+      <ion-button expand="block" color="primary" *ngIf="!me" (click)="goLogin()">
+        Iniciar sesión para solicitar
+      </ion-button>
+
+      <!-- ya tengo pendiente para ESTE libro -->
+      <ng-container *ngIf="me && !isMine() && b.disponible && alreadySent">
+        <ion-button expand="block" color="success" [disabled]="true">
+          Solicitud enviada
+        </ion-button>
+        <ion-button expand="block" fill="outline" (click)="goRequests()">
+          Ver solicitudes
+        </ion-button>
+      </ng-container>
+
+      <!-- sin libros disponibles para ofrecer -->
+      <ion-button expand="block" color="medium" [disabled]="true"
+        *ngIf="me && !isMine() && b.disponible && !alreadySent && !myAvailBooks.length">
+        No tienes libros para intercambiar
+      </ion-button>
+
+      <!-- OK para proponer -->
+      <ion-button expand="block" color="primary"
+        *ngIf="me && !isMine() && b.disponible && !alreadySent && myAvailBooks.length" (click)="openOffer()">
+        Proponer intercambio
+      </ion-button>
+    </div>
+
+    <!-- MODAL selección 1..3 libros -->
+    <ion-modal [isOpen]="offerOpen" (didDismiss)="closeOffer()">
+      <ng-template>
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>Elige 1 a 3 libros</ion-title>
+            <ion-buttons slot="end">
+              <ion-button (click)="closeOffer()">Cerrar</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content>
+          <ion-list inset="true">
+            <ion-item *ngFor="let m of myAvailBooks; trackBy: trackByBookId">
+              <ion-checkbox slot="start" [checked]="selectedIds.includes(m.id)" (ionChange)="toggleSelect(m.id)"
+                [disabled]="isOccupied(m.id) || (!selectedIds.includes(m.id) && selectedIds.length >= 3)">
+              </ion-checkbox>
+
+              <ion-avatar slot="start" class="thumb">
+                <img [src]="m.first_image || FALLBACK" (error)="onImgError($event)" />
+              </ion-avatar>
+
+              <ion-label>
+                <h3>{{ m.titulo }}</h3>
+                <p class="rating muted">de {{ m.autor }} • {{ m.estado }}</p>
+              </ion-label>
+
+              <ion-note slot="end" color="medium" *ngIf="isOccupied(m.id)">
+                En otra solicitud
+              </ion-note>
+            </ion-item>
+
+            <ion-item *ngIf="!myAvailBooks.length">
+              <ion-label class="muted">No tienes libros disponibles.</ion-label>
+            </ion-item>
+          </ion-list>
+
+          <div class="cta">
+            <ion-note class="rating">Seleccionados: {{ selectedIds.length }}/3</ion-note>
+            <ion-button expand="block" (click)="sendOffer()"
+              [disabled]="sending || !selectedIds.length || selectedIds.length > 3">
+              Enviar solicitud
+              <ion-spinner slot="end" *ngIf="sending"></ion-spinner>
+            </ion-button>
+          </div>
+        </ion-content>
+      </ng-template>
+    </ion-modal>
+  </ng-container>
+
+  <ng-template #loadingTpl>
+    <div class="pad">Cargando…</div>
+  </ng-template>
+</ion-content>

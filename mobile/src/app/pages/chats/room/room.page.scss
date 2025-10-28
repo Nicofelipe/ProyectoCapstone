@@ -1,0 +1,10 @@
+.chat-content{
+  --padding-bottom: 6px; --padding-top: 8px;
+  background: var(--app-bg);
+}
+.spacer{ height: 6px; }
+.spacer-bottom{ height: 80px; } // margen bajo las burbujas, encima del footer
+.chat-footer{
+  --background: var(--app-muted);
+  border-top: 1px solid rgba(0,0,0,.06);
+}

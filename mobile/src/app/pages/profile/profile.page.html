@@ -1,0 +1,130 @@
+<!-- /pages/profile.html -->
+
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Perfil</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="profile-content">
+  <div class="card">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="avatar-wrap">
+        <ion-avatar class="avatar" (click)="openAvatarModal()">
+          <img [src]="avatarUrl()" alt="avatar" loading="lazy"/>
+        </ion-avatar>
+
+        <!-- Botón flotante para cambiar -->
+        <button class="avatar-edit-btn" type="button" (click)="pickAvatar(fileInput); $event.stopPropagation()">
+          <ion-icon name="camera-outline"></ion-icon>
+        </button>
+
+        <!-- input de archivo oculto -->
+        <input #fileInput type="file" accept="image/*" class="visually-hidden"
+               (change)="onAvatarSelected($event)" />
+      </div>
+
+      <div class="id">
+        <h2>{{ fullName() || user()?.nombres }}</h2>
+        <p class="email">{{ user()?.email }}</p>
+        <p class="user">@{{ user()?.nombre_usuario }}</p>
+      </div>
+    </div>
+
+    <!-- MÉTRICAS -->
+    <div class="metrics">
+      <div class="metric"><div class="v">{{ metrics().libros }}</div><div class="k">Libros</div></div>
+      <div class="metric"><div class="v">{{ metrics().intercambios }}</div><div class="k">Intercambios</div></div>
+      <div class="metric">
+        <div class="stars"><ion-icon *ngFor="let s of stars()" [name]="s"></ion-icon></div>
+        <div class="k">Calificación</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button [class.active]="tab()==='info'" (click)="setTab('info')">Información</button>
+      <button [class.active]="tab()==='history'" (click)="setTab('history')">Historial</button>
+      <button [class.active]="tab()==='settings'" (click)="setTab('settings')">Ajustes</button>
+    </div>
+
+    <!-- INFO -->
+    <div class="tab-pane" *ngIf="tab()==='info'">
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px">
+        <ion-button size="small" fill="outline" (click)="toggleEdit()">
+          {{ editMode() ? 'Cancelar' : 'Editar' }}
+        </ion-button>
+        <ion-button size="small" color="primary" (click)="save()" *ngIf="editMode()">Guardar</ion-button>
+      </div>
+
+      <ion-list lines="none" *ngIf="!editMode()">
+        <ion-item><ion-label><h3>RUT</h3><p>{{ user()?.rut || '—' }}</p></ion-label></ion-item>
+        <ion-item><ion-label><h3>Nombre</h3><p>{{ fullName() || user()?.nombres }}</p></ion-label></ion-item>
+        <ion-item><ion-label><h3>Correo</h3><p>{{ user()?.email }}</p></ion-label></ion-item>
+        <ion-item>
+          <ion-label>
+            <h3>Dirección</h3>
+            <p>{{ user()?.direccion_completa || ((user()?.direccion || '') + ' ' + (user()?.numeracion || '')) || '—' }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item><ion-label><h3>Teléfono</h3><p>{{ user()?.telefono || '—' }}</p></ion-label></ion-item>
+      </ion-list>
+
+      <form [formGroup]="form" *ngIf="editMode()">
+        <ion-list lines="full">
+          <ion-item><ion-input label="Nombres" labelPlacement="stacked" formControlName="nombres"></ion-input></ion-item>
+          <ion-item><ion-input label="Apellido paterno" labelPlacement="stacked" formControlName="apellido_paterno"></ion-input></ion-item>
+          <ion-item><ion-input label="Apellido materno" labelPlacement="stacked" formControlName="apellido_materno"></ion-input></ion-item>
+          <ion-item><ion-input label="Teléfono" labelPlacement="stacked" formControlName="telefono"></ion-input></ion-item>
+          <ion-item><ion-input label="Dirección" labelPlacement="stacked" formControlName="direccion"></ion-input></ion-item>
+          <ion-item><ion-input label="Numeración" labelPlacement="stacked" formControlName="numeracion"></ion-input></ion-item>
+        </ion-list>
+      </form>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="tab-pane" *ngIf="tab()==='history'">
+      <ion-list *ngIf="history().length; else noHist" lines="full">
+        <ion-item *ngFor="let it of history()">
+          <ion-label><h3>{{ it.titulo }}</h3><p>{{ it.estado }} · {{ it.fecha }}</p></ion-label>
+        </ion-item>
+      </ion-list>
+      <ng-template #noHist><p class="muted">Sin intercambios por ahora.</p></ng-template>
+    </div>
+
+    <!-- AJUSTES -->
+    <div class="tab-pane" *ngIf="tab()==='settings'">
+      <ion-button expand="block" fill="outline" (click)="goChangePassword()">Cambiar contraseña</ion-button>
+      <ion-button class="mt" expand="block" color="danger" (click)="doLogout()">Cerrar sesión</ion-button>
+    </div>
+  </div>
+</ion-content>
+
+<!-- MODAL: ver avatar en grande + cambiar -->
+<ion-modal [isOpen]="avatarModal()" (didDismiss)="closeAvatarModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Foto de perfil</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeAvatarModal()">Cerrar</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="avatar-modal">
+      <img [src]="avatarUrl()" alt="avatar grande" />
+      <div class="actions" >
+        <ion-button   (click)="pickAvatar(fileInputModal)" fill="solid">
+          <ion-icon slot="start" name="camera-outline"></ion-icon>
+          Cambiar imagen
+        </ion-button>
+        <input #fileInputModal type="file" accept="image/*" class="visually-hidden"
+               (change)="onAvatarSelected($event)" />
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

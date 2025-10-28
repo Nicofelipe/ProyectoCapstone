@@ -1,0 +1,63 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Chats</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="ngOnInit(); $event.target.complete()">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <ng-container *ngIf="!loading(); else skel">
+    <ion-list inset="true" *ngIf="items().length; else empty">
+      <ion-item button detail="true" *ngFor="let c of items()" (click)="open(c)">
+        <ion-avatar slot="start">
+          <img [src]="avatar(c.counterpart_avatar)" alt="avatar" />
+        </ion-avatar>
+
+        <ion-label>
+          <h2 class="name">{{ c.counterpart_name || 'Usuario' }}</h2>
+
+          <p class="line">
+            <span class="key">Mi libro:</span>
+            <span class="val">“{{ c.my_book_title || '—' }}”</span>
+          </p>
+
+          <p class="line">
+            <span class="key">Libro ofertado:</span>
+            <span class="val">“{{ c.counterpart_book_title || '—' }}”</span>
+          </p>
+
+          <p class="meta">{{ c.actualizado_en | date:'short' }}</p>
+        </ion-label>
+
+        <!-- Ocultar el contador (era unread_count). Bórralo, o deja el *ngIf="false". -->
+        <!-- <ion-badge color="warning" *ngIf="false">{{ c.unread_count }}</ion-badge> -->
+      </ion-item>
+    </ion-list>
+  </ng-container>
+
+  <ng-template #empty>
+    <div class="empty">
+      <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+      <h3>No hay chats activos</h3>
+      <p>Cuando envíes o recibas un mensaje, aparecerán aquí.</p>
+    </div>
+  </ng-template>
+
+  <ng-template #skel>
+    <ion-list inset="true">
+      <ion-item *ngFor="let i of [1,2,3,4]">
+        <ion-avatar slot="start">
+          <ion-skeleton-text [animated]="true" style="width:100%;height:100%"></ion-skeleton-text>
+        </ion-avatar>
+        <ion-label>
+          <h2><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h2>
+          <p><ion-skeleton-text [animated]="true" style="width:80%"></ion-skeleton-text></p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </ng-template>
+</ion-content>

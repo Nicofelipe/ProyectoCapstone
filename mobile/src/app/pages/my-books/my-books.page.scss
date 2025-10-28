@@ -1,0 +1,62 @@
+.book-item {
+  --min-height: 116px;
+  ion-thumbnail { --border-radius: 8px; }
+
+  .ttl {
+    margin: 0 0 2px;
+    font-weight: 700;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 9999px;
+    background: var(--ion-color-warning);
+    display: inline-block;
+  }
+
+  .muted { margin: 0; color: var(--ion-color-medium); font-size: 12px; }
+
+  .desc {
+    margin: 8px 0 6px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    color: var(--ion-color-step-600, #444);
+  }
+
+  .loc {
+    margin: 4px 0 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ion-color-medium);
+  }
+
+  .footer {
+    margin-top: 10px;
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 12px;
+    .left { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .estado { height: 22px; }
+    .fecha { display: inline-flex; align-items: center; gap: 4px; color: var(--ion-color-medium); }
+  }
+}
+
+.footer .right .fecha {
+  font-size: 12px;        /* bájalo a 11px si aún se ve grande */
+  line-height: 1.1;
+}
+
+.footer .right .fecha ion-icon {
+  font-size: 30px;        /* reloj un poco más chico */
+}
+
+/* Portada vertical */
+.thumb-portrait {
+  --w: 80px;
+  width: var(--w);
+  aspect-ratio: 10 / 14;
+  position: relative;
+  overflow: hidden;
+}
+.thumb-portrait img { object-fit: cover; inset: 0; }

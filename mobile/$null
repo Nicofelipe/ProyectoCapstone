@@ -1,0 +1,25 @@
+npm ERR! code EUSAGE
+npm ERR! 
+npm ERR! The `npm ci` command can only install with an existing package-lock.json or
+npm ERR! npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+npm ERR! later to generate a package-lock.json file, then try again.
+npm ERR! 
+npm ERR! Clean install a project
+npm ERR! 
+npm ERR! Usage:
+npm ERR! npm ci
+npm ERR! 
+npm ERR! Options:
+npm ERR! [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm ERR! [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm ERR! [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm ERR! [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm ERR! [--no-bin-links] [--no-fund] [--dry-run]
+npm ERR! [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm ERR! [-ws|--workspaces] [--include-workspace-root] [--install-links]
+npm ERR! 
+npm ERR! aliases: clean-install, ic, install-clean, isntall-clean
+npm ERR! 
+npm ERR! Run "npm help ci" for more info
+
+npm ERR! A complete log of this run can be found in: C:\Users\nicol\AppData\Local\npm-cache\_logs\2025-09-27T03_52_03_839Z-debug-0.log

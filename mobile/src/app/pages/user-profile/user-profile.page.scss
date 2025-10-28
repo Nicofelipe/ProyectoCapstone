@@ -1,0 +1,37 @@
+/* Igual que profile */
+.profile-content { --background: var(--app-bg); }
+.profile-content::part(scroll) { display:flex; align-items:flex-start; justify-content:center; padding:16px; }
+
+.card { width:100%; max-width:520px; background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.08); padding:18px; margin:22px 0; }
+
+.header { display:flex; gap:14px; align-items:center; }
+.avatar { width:84px; height:84px; }
+.id h2 { margin:0; font-size:1.2rem; font-weight:700; color:var(--app-text); }
+.id .email { margin:2px 0 0; color:var(--ion-color-medium); }
+
+.metrics { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin:14px 0 4px; }
+.metric { text-align:center; background:#fafafa; border-radius:10px; padding:10px; }
+.metric .v { font-weight:700; font-size:1.2rem; }
+.metric .k { color:var(--ion-color-medium); font-size:.85rem; }
+
+.stars ion-icon { font-size:18px; color:var(--ion-color-warning); }
+.rcount { margin-left:6px; color:#666; }
+
+/* Tabs como profile (3 columnas aquí) */
+.tabs { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:12px; }
+@media (max-width: 380px) { .tabs { grid-template-columns: repeat(2, 1fr); } }
+.tabs button { padding:10px 8px; border:1px solid #eaeaea; border-radius:10px; background:#fff; font-weight:600; }
+.tabs button.active { background: var(--app-muted); border-color: var(--app-accent); }
+
+.tab-pane { margin-top:10px; }
+.muted { text-align:center; color:var(--ion-color-medium); margin:16px 0; }
+
+/* Libros (compacto, igual a profile) */
+.books-list { --inner-padding-start:8px; --inner-padding-end:8px; }
+.thumb { width:64px; height:90px; border-radius:8px; overflow:hidden; }
+.body { display:flex; flex-direction:column; gap:4px; padding:6px 0; }
+.title { display:flex; align-items:center; gap:8px; }
+.ttl { font-size:16px; font-weight:600; margin:0; line-height:1.15; }
+.author, .meta { margin:0; font-size:12px; line-height:1.2; }
+.muted { color:#7a7a7a; }
+.date { display:inline-flex; gap:4px; align-items:center; font-size:12px; }

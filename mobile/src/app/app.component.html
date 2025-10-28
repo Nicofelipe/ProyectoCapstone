@@ -1,0 +1,133 @@
+<ion-app>
+  <!-- Menú lateral -->
+  <ion-menu contentId="main" type="overlay">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title style="color:#2b2b2b;">Cambioteca</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <!-- Cabecera de usuario (avatar clickeable) -->
+      <div class="menu-user" *ngIf="user as u; else guestHeader" (click)="goProfile()">
+        <ion-avatar class="menu-avatar">
+          <img [src]="avatarUrl(u)" alt="avatar" />
+        </ion-avatar>
+        <div class="menu-user-info">
+          <div class="name">{{ displayName(u) }}</div>
+          <div class="email">{{ u.email }}</div>
+        </div>
+        <ion-ripple-effect></ion-ripple-effect>
+      </div>
+
+      <ng-template #guestHeader>
+        <div class="menu-user guest">
+          <ion-avatar class="menu-avatar">
+            <img [src]="avatarUrl(null)" alt="avatar" />
+          </ion-avatar>
+          <div class="menu-user-info">
+            <div class="name">Invitado</div>
+            <div class="email">Bienvenido a Cambioteca</div>
+          </div>
+        </div>
+      </ng-template>
+
+      <ion-list>
+        <!-- Mi perfil solo si hay sesión -->
+        <ion-menu-toggle auto-hide="true" *ngIf="user">
+          <ion-item routerLink="/profile" routerLinkActive="activated" detail="true">
+            <ion-icon slot="start" name="person-circle-outline"></ion-icon>
+            <ion-label>Mi perfil</ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <!-- Resto de items -->
+        <ion-menu-toggle auto-hide="true" *ngFor="let it of visibleItems">
+          <ion-item [routerLink]="it.redirectTo" routerLinkActive="activated" detail="true">
+            <ion-icon slot="start" [name]="it.icon"></ion-icon>
+            <ion-label>{{ it.name }}</ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+
+        <ion-menu-toggle auto-hide="true" *ngIf="user">
+          <ion-item routerLink="/chats" routerLinkActive="activated" detail="true">
+            <ion-icon slot="start" name="chatbubbles-outline"></ion-icon>
+            <ion-label>Chats</ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+
+      </ion-list>
+
+
+
+
+      <!-- Cerrar sesión al final, solo logueado -->
+      <div style="padding:12px" *ngIf="user">
+        <ion-button expand="block" color="medium" fill="outline" (click)="logout()">
+          <ion-icon slot="start" name="log-out-outline"></ion-icon>
+          Cerrar sesión
+        </ion-button>
+      </div>
+    </ion-content>
+  </ion-menu>
+
+  <!-- Contenido principal -->
+  <!-- ...menú igual... -->
+
+  <div class="app-shell" [class.footer-visible]="footerVisible" [class.has-tabbar]="!!user">
+    <ion-router-outlet id="main"></ion-router-outlet>
+
+    <!-- separador para que el contenido no quede tapado por la barra -->
+    <div class="tabbar-spacer" *ngIf="user"></div>
+
+    <div #footerSentinel class="footer-reveal-guard" aria-hidden="true"></div>
+
+    <!-- ===== Barra inferior móvil (solo logueado) ===== -->
+    <nav class="mobile-tabbar" *ngIf="user">
+
+      <button class="tab" routerLink="/books" aria-label="Libros">
+        <ion-icon name="book-outline"></ion-icon>
+        <span>Libros</span>
+      </button>
+
+      <!-- Botón central: Añadir libro -->
+      <button class="add" (click)="onAddBook()" aria-label="Añadir libro">
+        <ion-icon name="add"></ion-icon>
+      </button>
+
+      <button class="tab" routerLink="/requests" aria-label="Solicitudes">
+        <ion-icon name="swap-horizontal-outline"></ion-icon>
+        <span>Solicitudes</span>
+      </button>
+
+      <button class="tab" routerLink="/profile" aria-label="Perfil">
+        <ion-icon name="person-circle-outline"></ion-icon>
+        <span>Perfil</span>
+      </button>
+
+      <button class="tab" routerLink="/chats" aria-label="Chats">
+        <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+        <span>Chats</span>
+      </button>
+    </nav>
+
+    <footer class="global-footer">
+      <div class="footer-inner">
+        <h4 class="brand">Cambioteca</h4>
+        <div class="social">
+          <ion-button fill="clear" size="small">
+            <ion-icon slot="start" name="logo-instagram"></ion-icon> Instagram
+          </ion-button>
+          <ion-button fill="clear" size="small">
+            <ion-icon slot="start" name="logo-facebook"></ion-icon> Facebook
+          </ion-button>
+          <ion-button fill="clear" size="small">
+            <ion-icon slot="start" name="logo-twitter"></ion-icon> X/Twitter
+          </ion-button>
+        </div>
+      </div>
+    </footer>
+  </div>
+</ion-app>

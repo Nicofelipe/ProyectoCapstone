@@ -1,0 +1,35 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/chats"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ title }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list lines="none">
+    <ng-container *ngIf="!loading(); else skel">
+      <app-message-bubble
+        *ngFor="let m of messages()"
+        [meId]="meId"
+        [msg]="m">
+      </app-message-bubble>
+
+      <div *ngIf="messages().length === 0" style="text-align:center; padding:24px; color:var(--ion-color-medium);">
+        Aún no hay mensajes.
+      </div>
+    </ng-container>
+  </ion-list>
+
+  <ng-template #skel>
+    <ion-list>
+      <ion-item *ngFor="let i of [1,2,3]">
+        <ion-skeleton-text [animated]="true" style="width:80%"></ion-skeleton-text>
+      </ion-item>
+    </ion-list>
+  </ng-template>
+</ion-content>
+
+<!-- Composer fijo abajo -->
+<app-composer (send)="onSend($event)"></app-composer>

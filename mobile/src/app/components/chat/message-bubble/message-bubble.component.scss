@@ -1,0 +1,20 @@
+:host { display:block; }
+.row {
+  display:flex; padding:6px 10px;
+  &.mine { justify-content:flex-end; }
+}
+.bubble{
+  max-width: 78%;
+  border-radius: 14px;
+  padding:10px 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.row.mine .bubble{
+  background: #e9dede; /* combina con tu paleta */
+}
+.text{ white-space:pre-wrap; word-break:break-word; }
+.meta{
+  display:flex; gap:6px; align-items:center; opacity:.6;
+  font-size: 11px; margin-top:4px; justify-content:flex-end;
+}

@@ -1,0 +1,344 @@
+<!-- src/app/pages/book-detail/book-detail.page.html -->
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/my-books"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Detalle del libro</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <!-- Loading -->
+  <ng-container *ngIf="loading(); else loaded">
+    <ion-list inset="true">
+      <ion-item lines="full">
+        <ion-thumbnail slot="start">
+          <ion-skeleton-text [animated]="true" style="width:80px;height:112px"></ion-skeleton-text>
+        </ion-thumbnail>
+        <ion-label>
+          <h2><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h2>
+          <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
+          <p><ion-skeleton-text [animated]="true" style="width:70%"></ion-skeleton-text></p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </ng-container>
+
+  <ng-template #loaded>
+    <ng-container *ngIf="book() as b; else notfound">
+      <ion-list inset="true">
+        <ion-item lines="full">
+          <ion-thumbnail slot="start">
+            <img [src]="b.first_image || '/assets/librodefecto.png'" width="80" height="112" alt="portada"
+              (error)="onImgError($event)" />
+          </ion-thumbnail>
+
+          <ion-label>
+            <h2 class="ttl">{{ b.titulo }}</h2>
+            <p class="muted">de {{ b.autor }}</p>
+            <p class="muted">Editorial: {{ b.editorial }} · {{ b.tipo_tapa }}</p>
+            <p class="muted">Género: {{ b.genero || b.genero_nombre || '—' }}</p>
+            <p class="desc">{{ b.descripcion }}</p>
+
+            <div class="meta">
+              <ion-badge [color]="b.disponible ? 'success' : 'medium'">
+                {{ b.disponible ? 'Disponible' : 'No disponible' }}
+              </ion-badge>
+
+
+              <ion-chip [color]="estadoColor(b.estado)" outline="true" class="estado">
+                <ion-icon name="pricetag-outline"></ion-icon>
+                <ion-label>{{ toUiEstado(b.estado) }}</ion-label>
+              </ion-chip>
+
+
+              <ion-note class="comuna" *ngIf="b.comuna_nombre">
+                <ion-icon name="location-outline"></ion-icon>
+                {{ b.comuna_nombre }}
+              </ion-note>
+
+              <ion-note class="fecha">
+                <ion-icon name="time-outline"></ion-icon>
+                {{ b.fecha_subida | date:'medium' }}
+              </ion-note>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+
+      <!-- Acciones principales -->
+      <!-- Sustituye el bloque del botón por este chip -->
+      <div class="actions" style="padding: 12px 16px;">
+        <ion-chip color="primary" outline="true">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <ion-label>Solicitudes: {{ (book()?.history?.length || 0) }}</ion-label>
+        </ion-chip>
+      </div>
+
+      <div class="actions" style="padding: 0 16px 12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <!-- input oculto para subir -->
+        <input type="file" multiple accept="image/*" #filePicker (change)="onPickFiles($event); $event.target.value=''"
+          hidden />
+
+        <ion-button (click)="filePicker.click()" [disabled]="uploading() || imagesLocked()">
+          <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+          Subir imágenes
+          <ion-spinner slot="end" *ngIf="uploading()"></ion-spinner>
+        </ion-button>
+
+        <ion-button fill="outline" (click)="openGallery(0)">
+          <ion-icon slot="start" name="images-outline"></ion-icon>
+          Ver imágenes ({{ images().length }})
+        </ion-button>
+
+        <ion-button color="medium" fill="outline" (click)="openEdit()" [disabled]="editLocked()">
+          <ion-icon slot="start" name="create-outline"></ion-icon>
+          Editar
+        </ion-button>
+        <ion-button color="danger" fill="outline" (click)="deletePublication()" [disabled]="editLocked()">
+          <ion-icon slot="start" name="trash-outline"></ion-icon>
+          Eliminar publicación
+        </ion-button>
+        <ion-note class="muted" *ngIf="editLocked()" style="margin: 4px 16px 8px; display:block;">
+          No puedes eliminar ni editar esta publicación porque tiene un intercambio <b>Completado</b>.
+        </ion-note>
+      </div>
+
+
+
+      <!-- PRE-SUBIDA: previews + opción de portada + confirmar -->
+      <ion-card *ngIf="pendingPreviews().length">
+        <ion-card-header>
+          <ion-card-title>Imágenes seleccionadas</ion-card-title>
+          <ion-card-subtitle>Elige si quieres mantener la portada actual o usar una nueva</ion-card-subtitle>
+        </ion-card-header>
+
+        <ion-card-content>
+          <ion-segment [value]="portadaMode()" (ionChange)="onPortadaModeChange($event)">
+            <ion-segment-button value="keep">
+              <ion-label>Mantener portada actual</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="new">
+              <ion-label>Usar portada nueva</ion-label>
+            </ion-segment-button>
+          </ion-segment>
+
+          <div class="tip muted" *ngIf="portadaMode() === 'keep'">
+            Se mantendrá la portada actual. (Puedes cambiarla después en la galería)
+          </div>
+
+          <div class="previews" [class.disabled]="portadaMode() === 'keep'">
+            <div class="thumb" *ngFor="let src of pendingPreviews(); let i = index" (click)="setPendingCover(i)">
+              <img [src]="src" [alt]="'img '+(i+1)" />
+              <div class="badge" [class.active]="i === pendingCoverIndex() && portadaMode() === 'new'">
+                {{ portadaMode() === 'new'
+                ? (i === pendingCoverIndex() ? 'Portada' : 'Elegir portada')
+                : 'No como portada' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="pending-actions">
+            <ion-button (click)="uploadPending()" [disabled]="uploading()">
+              <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+              Subir {{ pendingPreviews().length }} imagen{{ pendingPreviews().length === 1 ? '' : 'es' }}
+              <ion-spinner slot="end" *ngIf="uploading()"></ion-spinner>
+            </ion-button>
+            <ion-button fill="clear" color="medium" (click)="clearPending()" [disabled]="uploading()">
+              Cancelar
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Resumen de contadores -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Actividad</ion-card-title>
+        </ion-card-header>
+        <ion-card-content style="padding: 0;">
+          <ion-list inset="true">
+            <!-- Lista Actividad -->
+            <ion-item lines="full" *ngFor="let h of (book()?.history || []); trackBy: trackByHistory">
+              <ion-icon slot="start" [name]="solicitudIcono(h.estado)" [color]="solicitudColor(h.estado)">
+              </ion-icon>
+              <ion-label>
+                <h3>{{ h.counterpart_user || 'Usuario' }} — {{ h.counterpart_book || 'Libro' }}</h3>
+                <p class="muted">Estado: {{ h.estado }} · {{ h.fecha | date:'mediumDate' }}</p>
+              </ion-label>
+            </ion-item>
+
+            <ion-item *ngIf="!(book()?.history?.length)">
+              <ion-label class="muted">No hay solicitudes aún.</ion-label>
+            </ion-item>
+          </ion-list>
+        </ion-card-content>
+      </ion-card>
+    </ng-container>
+
+    <ng-template #notfound>
+      <div style="padding: 24px; text-align:center; color: var(--ion-color-medium);">
+        No se encontró el libro.
+      </div>
+    </ng-template>
+  </ng-template>
+
+  <!-- Modal Galería (solo elegir portada y cerrar) -->
+  <ion-modal class="full-modal" [isOpen]="galleryOpen()" (didDismiss)="closeGallery()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Galería</ion-title>
+          <ion-buttons slot="end">
+            <ng-container *ngIf="currentImage() as cur">
+              <ion-button (click)="setAsCover(cur.id_imagen)" [disabled]="cur.is_portada">
+                <ion-icon slot="start" name="star-outline"></ion-icon>
+                {{ cur.is_portada ? 'Portada' : 'Hacer portada' }}
+              </ion-button>
+            </ng-container>
+            <ion-button (click)="closeGallery()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content>
+        <ng-container *ngIf="images().length; else noimgs">
+          <div class="gallery-viewer">
+            <button class="nav-btn prev" (click)="prevImage()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+
+            <ng-container *ngIf="currentImage() as cur">
+              <img [src]="cur.url_abs" alt="imagen del libro" />
+            </ng-container>
+
+            <button class="nav-btn next" (click)="nextImage()">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="img-actions">
+            <ng-container *ngIf="currentImage() as cur">
+              <ion-button size="small" (click)="setAsCover(cur.id_imagen)"
+                [disabled]="cur.is_portada || imagesLocked()">
+                <ion-icon slot="start" name="star-outline"></ion-icon>
+                {{ cur.is_portada ? 'Portada' : 'Hacer portada' }}
+              </ion-button>
+
+              <ion-button size="small" color="danger" fill="outline" (click)="deleteImage(cur.id_imagen)"
+                [disabled]="imagesLocked()">
+                <ion-icon slot="start" name="trash-outline"></ion-icon>
+                Eliminar
+              </ion-button>
+            </ng-container>
+          </div>
+
+          <div class="thumbs">
+            <img *ngFor="let im of images(); let i = index" [src]="im.url_abs" [class.active]="i === galleryIndex()"
+              (click)="galleryIndex.set(i)" alt="miniatura" />
+          </div>
+        </ng-container>
+
+        <ng-template #noimgs>
+          <div class="noimgs">
+            No hay imágenes para este libro.
+          </div>
+        </ng-template>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Modal Editar -->
+  <ion-modal [isOpen]="editOpen()" (didDismiss)="closeEdit()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Editar libro</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeEdit()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content>
+        <ion-list inset="true">
+          <ion-item>
+            <ion-input label="Título" labelPlacement="floating" [(ngModel)]="edit.titulo"
+              [disabled]="editLocked()"></ion-input>
+          </ion-item>
+          <ion-item>
+            <ion-input label="Autor" labelPlacement="floating" [(ngModel)]="edit.autor"
+              [disabled]="editLocked()"></ion-input>
+          </ion-item>
+          <ion-item>
+            <ion-input label="Editorial" labelPlacement="floating" [(ngModel)]="edit.editorial"
+              [disabled]="editLocked()"></ion-input>
+          </ion-item>
+
+          <!-- Género -->
+          <ion-item>
+            <ion-select [(ngModel)]="edit.id_genero" [compareWith]="compareNumber" label="Género"
+              labelPlacement="floating" [disabled]="editLocked()">
+              <ion-select-option *ngFor="let g of generos" [value]="+g.id_genero">
+                {{ g.nombre }}
+              </ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <!-- Tipo tapa -->
+          <ion-item>
+            <ion-select label="Tipo de tapa" labelPlacement="floating" [(ngModel)]="edit.tipo_tapa"
+              [disabled]="editLocked()">
+              <ion-select-option value="Tapa dura">Tapa dura</ion-select-option>
+              <ion-select-option value="Tapa blanda">Tapa blanda</ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <!-- Estado -->
+          <ion-item>
+            <ion-select label="Estado" labelPlacement="floating" [(ngModel)]="edit.estado" [disabled]="editLocked()">
+              <ion-select-option value="Nuevo">Nuevo</ion-select-option>
+              <ion-select-option value="Como Nuevo">Como Nuevo</ion-select-option>
+              <ion-select-option value="Usado">Usado</ion-select-option>
+              <ion-select-option value="Gastado">Gastado</ion-select-option>
+            </ion-select>
+          </ion-item>
+
+
+          <!-- Descripción -->
+          <ion-item>
+            <ion-textarea label="Descripción" labelPlacement="floating" autoGrow="true" [(ngModel)]="edit.descripcion"
+              [disabled]="editLocked()"></ion-textarea>
+          </ion-item>
+
+          <!-- ISBN -->
+          <ion-item>
+            <ion-input type="text" label="ISBN" labelPlacement="floating" [(ngModel)]="edit.isbn"
+              [disabled]="editLocked()"></ion-input>
+          </ion-item>
+          <!-- Año -->
+          <ion-item>
+            <ion-input type="number" label="Año de publicación" labelPlacement="floating"
+              [(ngModel)]="edit.anio_publicacion" [disabled]="editLocked()"></ion-input>
+          </ion-item>
+
+          <!-- Disponible -->
+          <ion-item lines="none">
+            <ion-toggle [(ngModel)]="edit.disponible" [disabled]="editLocked()">Disponible</ion-toggle>
+          </ion-item>
+
+          <!-- Nota aclaratoria -->
+          <ion-note class="muted" *ngIf="editLocked()" style="margin: 4px 16px 8px; display:block;">
+            No puedes editar este libro ni su disponibilidad porque tiene un intercambio <b>Completado</b>.
+          </ion-note>
+        </ion-list> <!-- 👈 CERRAR LA LISTA AQUÍ -->
+
+        <!-- Guardar -->
+        <div style="padding:16px;">
+          <ion-button expand="block" (click)="saveEdit()" [disabled]="editLocked()">
+            <ion-icon slot="start" name="save-outline"></ion-icon>
+            Guardar cambios
+          </ion-button>
+        </div>
+      </ion-content>

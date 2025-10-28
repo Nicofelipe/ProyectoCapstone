@@ -1,0 +1,7 @@
+.muted { color: var(--ion-color-medium); }
+.meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+.thumb img { width:56px; height:80px; object-fit:cover; border-radius:6px; }
+.line2 { display:flex; gap:6px; align-items:center; margin-top:6px; color: var(--ion-color-medium); }
+.codigo { margin-top:8px; }
+.code-input { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.link{ text-decoration: underline; cursor:pointer; }

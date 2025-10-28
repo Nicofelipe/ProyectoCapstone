@@ -1,0 +1,14 @@
+ext {
+  // SDKs
+  minSdkVersion = 23
+  compileSdkVersion = 35   // <- subido a 35
+  targetSdkVersion = 35    // <- subido a 35
+
+  // Libs
+  androidxAppCompatVersion = '1.7.0'
+  androidxCoordinatorLayoutVersion = '1.2.0'
+  coreSplashScreenVersion = '1.0.1'
+  junitVersion = '4.13.2'
+  androidxJunitVersion = '1.1.5'
+  androidxEspressoCoreVersion = '3.5.1'
+}

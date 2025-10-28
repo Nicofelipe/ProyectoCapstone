@@ -1,0 +1,43 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>{{ title }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list *ngIf="items.length; else empty">
+  <ion-item button detail="true" *ngFor="let b of items" (click)="go(b.id)">
+    <ion-avatar slot="start" class="thumb">
+      <img [src]="cover(b)" alt="portada" (error)="onImgError($event)" />
+    </ion-avatar>
+
+    <ion-label>
+      <h2 class="ttl">
+        {{ b.titulo }}
+        <ion-badge style="margin-left:6px" [color]="b.disponible ? 'success' : 'medium'">
+          {{ b.disponible ? 'Disponible' : 'No disp.' }}
+        </ion-badge>
+
+        <!-- 👇 si estoy logueado y ya envié solicitud pendiente para este libro -->
+        <ion-badge *ngIf="me && pendingFor.has(b.id)" color="warning" style="margin-left:6px">
+          Solicitud enviada
+        </ion-badge>
+      </h2>
+
+      <p class="muted">de {{ b.autor }}</p>
+      <p class="owner">
+        <strong>@{{ b.owner.nombre_usuario }}</strong>
+        <ion-badge *ngIf="b.owner.rating_avg != null" color="medium">
+          ★ {{ b.owner.rating_avg | number:'1.1-1' }} ({{ b.owner.rating_count}})
+        </ion-badge>
+      </p>
+      <p class="meta">Estado: {{ b.estado }} • {{ b.fecha_subida | date:'mediumDate' }}</p>
+    </ion-label>
+  </ion-item>
+</ion-list>
+
+  <ng-template #empty>
+    <div style="padding:16px">No hay publicaciones para “{{ title }}”.</div>
+  </ng-template>
+</ion-content>

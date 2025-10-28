@@ -1,0 +1,10 @@
+<div class="row" [class.mine]="mine">
+  <div class="bubble">
+    <div class="text">{{ msg?.cuerpo }}</div>
+    <div class="meta">
+      <ion-icon *ngIf="mine" name="checkmark-done-outline"></ion-icon>
+      <span>{{ msg?.enviado_en | date:'shortTime' }}</span>
+      <span *ngIf="msg?.editado_en" class="edited"> · editado</span>
+    </div>
+  </div>
+</div>

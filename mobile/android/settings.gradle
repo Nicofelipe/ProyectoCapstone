@@ -1,0 +1,29 @@
+pluginManagement {
+  repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+  }
+}
+
+/**
+ * Repos globales para TODAS las dependencias (AGP 8/Gradle 8).
+ * Esto evita que Gradle busque jars locales (flatDir) y
+ * resuelve desde Google/MavenCentral.
+ */
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+  repositories {
+    google()
+    mavenCentral()
+    // Si alguna lib viene de JitPack, descomenta:
+    // maven { url 'https://jitpack.io' }
+  }
+}
+
+include ':app'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+
+// Capacitor agrega/gestiona más módulos aquí
+apply from: 'capacitor.settings.gradle'

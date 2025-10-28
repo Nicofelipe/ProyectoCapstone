@@ -1,0 +1,10 @@
+.composer{
+  display:flex; gap:8px; padding:10px; background:var(--app-muted);
+  border-top: 1px solid rgba(0,0,0,.06);
+}
+ion-textarea{
+  --background: #fff;
+  border-radius: 12px;
+  padding: 6px 10px !important;
+  flex: 1 1 auto;
+}

@@ -1,0 +1,13 @@
+<div class="composer">
+  <ion-textarea
+    [(ngModel)]="text"
+    autoGrow="true"
+    rows="1"
+    placeholder="Escribe un mensaje..."
+    (keyup.enter)="onSend()"
+  ></ion-textarea>
+
+  <ion-button size="default" (click)="onSend()">
+    <ion-icon slot="icon-only" name="send-outline"></ion-icon>
+  </ion-button>
+</div>
