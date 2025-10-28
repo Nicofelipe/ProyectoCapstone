@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse, HttpResponse
 
 from core.views import (
     login_view,
@@ -17,10 +18,32 @@ from core.views import (
     user_summary,
     update_user_profile,
     update_user_avatar,
-    user_books_view
+    user_books_view,
 )
 
+# --------- nuevas vistas simples ----------
+def index(_request):
+    return JsonResponse({
+        "name": "Cambioteca API",
+        "status": "ok",
+        "docs": None,
+        "useful_endpoints": [
+            "/api/libros/latest/",
+            "/api/libros/populares/",
+            "/admin/",
+        ],
+    })
+
+def health(_request):
+    return HttpResponse("OK", content_type="text/plain")
+# ------------------------------------------
+
 urlpatterns = [
+    # raíz y health
+    path("", index),
+    path("health/", health),
+
+    # admin
     path('admin/', admin.site.urls),
 
     # Auth
@@ -40,7 +63,7 @@ urlpatterns = [
     path('api/users/<int:id>/avatar/', update_user_avatar),
     path('api/users/<int:user_id>/books/', user_books_view),
 
-    # Market (libros, my_books, etc.)
+    # Market (libros, chats, intercambios, etc.)
     path('api/', include('market.urls')),
 ]
 
