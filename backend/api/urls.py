@@ -1,10 +1,10 @@
 # backend/api/urls.py
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse, HttpResponse
-
+from django.views.static import serve as media_serve
 from core.views import (
     login_view,
     register_usuario,
@@ -67,5 +67,9 @@ urlpatterns = [
     path('api/', include('market.urls')),
 ]
 
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', media_serve, {'document_root': settings.MEDIA_ROOT}),
+    ]

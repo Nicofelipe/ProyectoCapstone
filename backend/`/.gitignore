@@ -1,0 +1,46 @@
+# --- SO / IDE ---
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# --- Python / Django ---
+backend/.venv/
+*.py[cod]
+__pycache__/
+*.so
+backend/.env
+*.env
+backend/*.sqlite3
+
+# Migraciones (SÍ se versionan) -> no ignores migrations
+
+# Static build de Django
+backend/staticfiles/
+
+# Media: ignorar uploads, pero mantener estructura y defaults
+backend/media/*
+!backend/media/.gitkeep
+!backend/media/avatars/.gitkeep
+!backend/media/books/.gitkeep
+!backend/media/avatars/avatardefecto.jpg
+!backend/media/books/librodefecto.png
+
+
+# --- Node / Ionic ---
+mobile/node_modules/
+mobile/www/
+mobile/dist/
+mobile/.angular/
+mobile/.ionic/
+# package-lock.json SÍ se versiona
+
+# --- Test / coverage ---
+coverage/
+*.lcov
+reports/

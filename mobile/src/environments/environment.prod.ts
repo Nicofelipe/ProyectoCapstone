@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://127.0.0.1:8000',
-  mediaBase: '', // 👈 con barra final
+  apiUrl: 'https://proyectocapstone-production.up.railway.app',
+   mediaBase: 'https://proyectocapstone-production.up.railway.app/media'
 };

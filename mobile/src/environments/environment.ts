@@ -4,8 +4,8 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'http://127.0.0.1:8000',   // <-- sin /api
-  mediaBase: 'http://127.0.0.1:8000/media/', // base para imágenes
+  apiUrl: 'https://proyectocapstone-production.up.railway.app',   // <-- sin /api
+  mediaBase: 'https://proyectocapstone-production.up.railway.app/media/', // base para imágenes
 };
 
 /*
