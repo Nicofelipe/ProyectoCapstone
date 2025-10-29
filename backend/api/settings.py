@@ -128,9 +128,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-APP_DIR = BASE_DIR.parent  # -> /app
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(APP_DIR / "media"))
 MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media") 
 
 # --- CORS / CSRF ---
 # En producción agrega tu dominio Railway en variables:
