@@ -8,7 +8,8 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 # --- Paths / .env ---
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent   # /app/backend
+APP_DIR  = BASE_DIR.parent 
 load_dotenv(BASE_DIR / ".env")
 
 def env_list(name: str, default: str = ""):
@@ -128,7 +129,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(APP_DIR / "media"))  # => /app/media
 MEDIA_URL = "/media/"
 
 # --- CORS / CSRF ---
