@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 # --- Paths / .env ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
 def env_list(name: str, default: str = ""):
     val = os.getenv(name, default)

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { IonicModule } from '@ionic/angular';
+import { ConfigService } from 'src/app/core/services/config.service';
 import { geocodeAll, loadCsv, loadMetroCsv, Placemark } from 'src/app/utils/geo-loaders';
 import { environment } from 'src/environments/environment';
 import { CAMBIOTECAS } from './data';
@@ -40,7 +41,13 @@ export class MapCambiotecasPage implements OnInit, OnDestroy {
   // cache en memoria + localStorage para resultados geocodificados
   private layerCache: Record<string, Pin[] | undefined> = {};
 
-  async ngOnInit() {
+  constructor(private cfg: ConfigService) {}
+
+
+
+   async ngOnInit() {
+    await this.cfg.load();
+    setOptions({ key: this.cfg.config.mapsApiKey, v: 'weekly' }); // 👈 usa key del backend
     await this.initMap();
     await this.switchLayer(this.activeLayer);
   }
@@ -51,20 +58,19 @@ export class MapCambiotecasPage implements OnInit, OnDestroy {
 
   // =============== MAPA ============
   private async initMap() {
-    setOptions({ key: environment.googleMaps.apiKey, v: 'weekly' });
-    const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
-    await importLibrary('marker');
+  const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
+  await importLibrary('marker');
 
-    this.map = new Map(this.mapEl.nativeElement, {
-      center: environment.googleMaps.defaultCenter,
-      zoom: environment.googleMaps.defaultZoom,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    });
+  this.map = new Map(this.mapEl.nativeElement, {
+    center: environment.googleMaps.defaultCenter,
+    zoom: environment.googleMaps.defaultZoom,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+  });
 
-    this.info = new google.maps.InfoWindow();
-  }
+  this.info = new google.maps.InfoWindow();
+}
 
   // =============== CAPAS ============
   async onLayerChange(ev: CustomEvent) {

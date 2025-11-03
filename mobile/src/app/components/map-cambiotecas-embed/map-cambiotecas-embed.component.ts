@@ -1,14 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import { IonicModule, SegmentCustomEvent } from '@ionic/angular'; // 👈 importa SegmentCustomEvent
+import { IonicModule, SegmentCustomEvent } from '@ionic/angular';
+import { ConfigService } from 'src/app/core/services/config.service';
 import { CAMBIOTECAS } from 'src/app/pages/cambiotecas/data';
 import { geocodeAll, loadCsv, loadMetroCsv, Placemark } from 'src/app/utils/geo-loaders';
 import { environment } from 'src/environments/environment';
 
 type LatLng = google.maps.LatLngLiteral;
 type LayerKey = 'cambiotecas' | 'duoc' | 'bibliotecas' | 'metro';
-
 interface Pin { name: string; address?: string; position: LatLng; }
 
 @Component({
@@ -36,8 +36,14 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
     metro: 'assets/data/Estaciones_actuales_Metro_de_Santiago.csv',
   } as const;
 
+   constructor(private cfg: ConfigService) {} 
+
   async ngOnInit() {
-    setOptions({ key: environment.googleMaps.apiKey, v: 'weekly' });
+    // 1) carga config desde backend
+    await this.cfg.load();
+    // 2) setear key de Maps en runtime (ya no desde environment)
+    setOptions({ key: this.cfg.config.mapsApiKey, v: 'weekly' });
+
     const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
     await importLibrary('marker');
 
@@ -54,6 +60,8 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() { this.clearMarkers(); }
+
+  
 
   // ✅ Tipado correcto + fallback
   async onSegmentChange(ev: SegmentCustomEvent) {
