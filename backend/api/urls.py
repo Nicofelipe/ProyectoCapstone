@@ -52,6 +52,7 @@ urlpatterns = [
 
     # admin
     path('admin/', admin.site.urls),
+    path("api/", include("core.urls")),
 
     # Auth
     path("api/auth/login/", auth.login_issue_tokens),
