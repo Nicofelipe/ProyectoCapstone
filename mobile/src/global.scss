@@ -18,10 +18,7 @@ html, body, ion-app, app-root {
   height: 100%;
 }
 
-/* 👉 MUY IMPORTANTE: deja espacio inferior global para el footer fijo */
-/*ion-content {
-  --padding-bottom: calc(var(--footer-height) + 12px);
-}*/
+
 
 /* -------- Layout para FOOTER al final -------- */
 .shell {
@@ -113,13 +110,5 @@ ion-button:hover::part(native) {
   --color: var(--app-text);
 }
 
-/* src/global.scss (al final) */
-ion-content {
-  --footer-height: 100px; /* igual que en app.component.scss */
-}
-.app-shell.footer-visible ion-content,
-ion-content.with-footer {
-  --padding-bottom: calc(var(--footer-height) + env(safe-area-inset-bottom, 0px));
-}
 
 

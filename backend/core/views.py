@@ -5,7 +5,7 @@ from django.core.mail import EmailMultiAlternatives
 from email.mime.image import MIMEImage
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q, Avg, Count
-
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -176,6 +176,11 @@ def comunas_view(request):
 # =========================
 FRONTEND_RESET_URL = getattr(settings, 'FRONTEND_RESET_URL', 'http://localhost:8100/auth/reset-password')
 
+# =========================
+# Forgot / Reset password
+# =========================
+FRONTEND_RESET_URL = getattr(settings, 'FRONTEND_RESET_URL', 'http://localhost:8100/auth/reset-password')
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
@@ -183,13 +188,23 @@ def forgot_password(request):
     ser.is_valid(raise_exception=True)
     user = ser.validated_data['user']
 
+    # Siempre devolvemos 200 para no revelar si el email existe.
     if user:
         token = secrets.token_urlsafe(48)
         PasswordResetToken.objects.create(user=user, token=token)
-        reset_link = f"{settings.FRONTEND_RESET_URL}/{token}"
+
+        # Construcción robusta del enlace (sin dobles barras)
+        base_url = str(getattr(settings, 'FRONTEND_RESET_URL', FRONTEND_RESET_URL)).rstrip('/')
+        reset_link = f"{base_url}/{token}"
 
         subject = "Restablece tu contraseña - Cambioteca"
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@cambioteca.local')
+
+        # Remitente a prueba de vacíos
+        from_email = (
+            getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+            or getattr(settings, 'EMAIL_HOST_USER', None)
+            or 'no-reply@cambioteca.local'
+        )
         to = [user.email]
 
         text_body = (
@@ -254,7 +269,7 @@ def forgot_password(request):
         msg = EmailMultiAlternatives(subject, text_body, from_email, to)
         msg.attach_alternative(html_body, "text/html")
 
-        # Adjuntar logo si existe
+        # Adjuntar logo si existe (opcional)
         try:
             logo_path = settings.MEDIA_ROOT / "app" / "cambioteca.png"
         except TypeError:
@@ -270,7 +285,12 @@ def forgot_password(request):
             if settings.DEBUG:
                 print("WARNING: No se pudo adjuntar el logo:", e)
 
-        msg.send(fail_silently=False)
+        # Envío con manejo de error para no romper la vista
+        try:
+            msg.send(fail_silently=False)
+        except Exception as e:
+            if settings.DEBUG:
+                print("EMAIL ERROR:", e)
 
         if settings.DEBUG:
             print("==== RESET LINK DEV ====", reset_link)
@@ -599,3 +619,30 @@ def user_books_view(request, user_id: int):
     } for b in qs]
 
     return Response(out)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    from django.contrib.auth.hashers import check_password, make_password
+
+    user = request.user  # ← Usuario autenticado por tu UsuarioJWTAuthentication
+    current = request.data.get("current") or ""
+    new = request.data.get("new") or ""
+
+    if not current or not new:
+        return Response({"detail": "Datos incompletos."}, status=400)
+
+    ok = False
+    try:
+        ok = check_password(current, user.contrasena)
+    except Exception:
+        ok = False
+    if not ok and user.contrasena == current:  # compatibilidad si quedó plano
+        ok = True
+    if not ok:
+        return Response({"detail": "Contraseña actual incorrecta."}, status=400)
+
+    user.contrasena = make_password(new)
+    user.save(update_fields=['contrasena'])
+    return Response({"message": "Contraseña actualizada."})

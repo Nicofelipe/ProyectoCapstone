@@ -68,16 +68,14 @@ class Calificacion(models.Model):
     )
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["id_intercambio", "id_usuario_calificador"],
-                name="uniq_calificacion_user_intercambio",
-            )
-        ]
-
-    class Meta:
         db_table = 'calificacion'
         managed = False
+        constraints = [
+            models.UniqueConstraint(
+                fields=['id_intercambio', 'id_usuario_calificador'],
+                name='uq_clasif_intercambio_calificador',
+            ),
+        ]
 
     def __str__(self):
         return f"Calificación {self.puntuacion} a {self.id_usuario_calificado_id}"
@@ -199,16 +197,23 @@ class Conversacion(models.Model):
         managed = False
 
 
+# market/models.py
+from django.db import models
+
 class ConversacionParticipante(models.Model):
-    # SIN 'id' aquí
+    id = models.BigAutoField(primary_key=True)
+
     id_conversacion = models.ForeignKey(
-        'market.Conversacion', db_column='id_conversacion',
-        on_delete=models.CASCADE, related_name='participantes',
-        primary_key=True  # <-- evita que Django agregue un id auto
+        'market.Conversacion',
+        db_column='id_conversacion',
+        on_delete=models.CASCADE,
+        related_name='participantes',
     )
     id_usuario = models.ForeignKey(
-        'core.Usuario', db_column='id_usuario',
-        on_delete=models.CASCADE, related_name='conversaciones'
+        'core.Usuario',
+        db_column='id_usuario',
+        on_delete=models.CASCADE,
+        related_name='conversaciones',
     )
     rol = models.CharField(max_length=20, null=True, blank=True)
     silenciado = models.BooleanField(default=False)
@@ -218,8 +223,13 @@ class ConversacionParticipante(models.Model):
 
     class Meta:
         db_table = 'conversacion_participante'
-        managed = False
-        unique_together = (('id_conversacion','id_usuario'),)
+        managed = True
+        constraints = [
+            models.UniqueConstraint(
+                fields=['id_conversacion', 'id_usuario'],
+                name='uniq_conversacion_usuario',
+            )
+        ]
 
 
 class ConversacionMensaje(models.Model):

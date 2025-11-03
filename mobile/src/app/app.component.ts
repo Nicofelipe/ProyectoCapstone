@@ -26,11 +26,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   items: MenuItem[] = [
     { name: 'Inicio', redirectTo: '/home', icon: 'home-outline' },
+    { name: 'Mi Perfil', redirectTo: '/profile', icon: 'person-circle-outline' },
     { name: 'Libros', redirectTo: '/books', icon: 'book-outline' },
     { name: 'Login', redirectTo: '/auth/login', icon: 'log-in' },
     { name: 'Registro', redirectTo: '/auth/register', icon: 'person' },
+    { name: 'Favoritos', redirectTo: '/favorites', icon: 'heart-outline' },
     { name: 'Mis libros', redirectTo: '/my-books', icon: 'library-outline' },
-    { name: 'Solicitudes', redirectTo: '/requests',  icon: 'swap-horizontal-outline' },
+    { name: 'Solicitudes', redirectTo: '/requests', icon: 'swap-horizontal-outline' },
+    { name: 'Chats', redirectTo: '/chats', icon: 'chatbubbles-outline' },
+    { name: 'Ubicaciones', redirectTo: '/cambiotecas', icon: 'map-outline' },
+    { name: 'Sobre nosotros', redirectTo: '/about', icon: 'information-circle-outline' },
   ];
 
   get visibleItems(): MenuItem[] {
@@ -39,9 +44,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       return this.items.filter(i => !['/auth/login', '/auth/register'].includes(i.redirectTo));
     }
     // invitado: ocultar "Mis libros"
-     return this.items.filter(i => !['/my-books', '/requests'].includes(i.redirectTo));
-    
+    return this.items.filter(i => !['/my-books', '/requests'].includes(i.redirectTo));
+
   }
+
 
   // 👇 HAZLO OPCIONAL y con { static: false }
   @ViewChild('footerSentinel', { static: false }) footerSentinel?: ElementRef<HTMLDivElement>;
@@ -94,7 +100,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async logout() {
-    await this.auth.logout();
+  await this.auth.logout();      // 👈 limpia token/user en Preferences y cache
+  await this.menu.close();
+  this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+}
+
+  async logoutAll() {
+    await this.auth.logoutAll();                // 👉 pega al backend y luego limpia local
     await this.menu.close();
     this.router.navigateByUrl('/auth/login', { replaceUrl: true });
   }

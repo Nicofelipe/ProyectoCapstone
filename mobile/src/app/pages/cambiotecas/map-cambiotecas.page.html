@@ -1,0 +1,38 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Mapa de Cambiotecas</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="page">
+  <ion-card class="card">
+    <ion-card-header>
+      <ion-card-title>Puntos de Encuentro</ion-card-title>
+      <ion-card-subtitle>Capas disponibles</ion-card-subtitle>
+    </ion-card-header>
+
+    <div class="seg-wrap">
+      <ion-segment [value]="activeLayer" (ionChange)="onLayerChange($event)">
+        <ion-segment-button value="cambiotecas"><ion-label>Cambiotecas</ion-label></ion-segment-button>
+        <ion-segment-button value="duoc"><ion-label>DUOC UC</ion-label></ion-segment-button>
+        <ion-segment-button value="bibliotecas"><ion-label>Bibliotecas</ion-label></ion-segment-button>
+        <ion-segment-button value="metro"><ion-label>Metro</ion-label></ion-segment-button>
+      </ion-segment>
+      <div class="count">{{ pinCount }} puntos</div>
+    </div>
+
+    <ion-card-content>
+      <div class="map-wrap">
+        <div #mapEl class="map"></div>
+      </div>
+
+      <div class="legend">
+        <span class="dot purple"></span> Cambiotecas
+        <span class="dot blue"></span> DUOC UC
+        <span class="dot green"></span> Bibliotecas
+        <span class="dot red"></span> Metro
+      </div>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

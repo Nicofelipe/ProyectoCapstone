@@ -6,6 +6,8 @@ from django.conf.urls.static import static
 from django.views.static import serve as dj_serve
 from django.urls import re_path
 from django.http import JsonResponse, HttpResponse
+from core import views as core
+from core import views_auth as auth
 from django.views.static import serve as media_serve
 from core.views import (
     login_view,
@@ -21,8 +23,11 @@ from core.views import (
     update_user_profile,
     update_user_avatar,
     user_books_view,
+    change_password_view
+    
 )
-
+from core import views as core_views
+from core import views_auth as auth_views 
 # --------- nuevas vistas simples ----------
 def index(_request):
     return JsonResponse({
@@ -49,11 +54,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Auth
-    path('api/auth/login/', login_view),
+    path("api/auth/login/", auth.login_issue_tokens),
+    path("api/auth/logout-all/", auth.logout_all_devices),
     path('api/auth/register/', register_usuario),
     path('api/auth/forgot/', forgot_password),
     path('api/auth/reset/', reset_password),
     path('api/auth/change-password/', change_password_view),
+    path("api/auth/change-password/", change_password_view, name="change_password"),
 
     # Catálogo / Usuarios
     path('api/catalog/regiones/', regiones_view),

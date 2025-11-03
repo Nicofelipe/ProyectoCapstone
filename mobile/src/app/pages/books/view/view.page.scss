@@ -1,15 +1,27 @@
+/* ===== Hero / Carrusel ===== */
+.hero {
+  position: relative;
+}
+
 .snap-gallery {
+  position: relative;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 100%;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   gap: 0;
-  max-height: 46vh;
-  background: #f3f3f3;
-  scrollbar-width: none; /* Firefox */
+  max-height: 52vh;
+  background: #f6f6f6;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  box-shadow: 0 2px 18px rgba(0, 0, 0, .06) inset;
+  scrollbar-width: none;
 }
-.snap-gallery::-webkit-scrollbar { display: none; }
+
+.snap-gallery::-webkit-scrollbar {
+  display: none;
+}
 
 .snap-gallery img {
   width: 100%;
@@ -18,28 +30,210 @@
   scroll-snap-align: start;
   user-select: none;
   -webkit-user-drag: none;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
 }
 
+.snap-gallery::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .18), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+}
+
+/* Dots */
 .dots {
   display: flex;
   justify-content: center;
   gap: 8px;
-  padding: 8px 0 2px;
+  padding: 10px 0 6px;
 }
+
 .dots button {
   width: 8px;
   height: 8px;
   border-radius: 999px;
   border: 0;
-  background: #c8c8c8;
-  opacity: .6;
+  background: #cfd3d8;
+  opacity: .7;
+  transition: transform .15s ease, opacity .15s ease, background .15s ease;
 }
+
 .dots button.active {
   opacity: 1;
+  transform: scale(1.15);
   background: var(--ion-color-primary);
 }
 
-.pad { padding: 16px; }
-.owner-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.rating { color: var(--ion-color-medium); }
-.cta { padding: 12px 16px 24px; }
+/* FAB Favorito (usa --color del botón) */
+/* ===== FAB Favorito ===== */
+.fav-fab {
+  --offset-top: 12px;
+  --offset-end: 12px;
+  z-index: 20;
+}
+
+.fav-btn {
+  /* fondo siempre blanquito, icono NEUTRO por defecto */
+  --background: rgba(255, 255, 255, .92);
+  --background-activated: rgba(255, 255, 255, 1);
+  --box-shadow: 0 6px 16px rgba(0, 0, 0, .16);
+  border: 1px solid rgba(0, 0, 0, .06);
+  backdrop-filter: blur(4px);
+
+  /* 👇 color NEUTRO cuando NO es favorito */
+  --color: var(--ion-color-medium) !important;
+}
+
+/* 👇 rojo cuando SÍ es favorito */
+.fav-btn.fav-on {
+  --color: var(--ion-color-danger) !important;
+}
+
+.fav-btn:hover {
+  transform: translateY(-1px) scale(1.03);
+  transition: transform .12s;
+}
+
+.fav-btn:active {
+  transform: scale(.98);
+}
+
+.hero {
+  position: relative;
+}
+
+/* ya lo tienes */
+
+.fav-in-hero {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  /* por encima del gradiente y la imagen */
+}
+
+/* tus estilos existentes del botón siguen funcionando */
+.fav-btn {
+  --background: rgba(255, 255, 255, .92);
+  --background-activated: rgba(255, 255, 255, 1);
+  --box-shadow: 0 6px 16px rgba(0, 0, 0, .16);
+  border: 1px solid rgba(0, 0, 0, .06);
+  backdrop-filter: blur(4px);
+  --color: var(--ion-color-medium) !important;
+  /* neutro */
+}
+
+.fav-btn.fav-on {
+  --color: var(--ion-color-danger) !important;
+}
+
+/* Evita herencias raras que te pinten el nombre del dueño */
+ion-item .owner-line strong,
+ion-item .owner-name {
+  color: var(--ion-text-color, #1a1a1a) !important;
+}
+
+/* --- el resto de tus estilos (carrusel, dots, paper, cta, etc.) puede quedar igual --- */
+
+
+/* Tarjeta “papel” */
+.paper {
+  margin: 10px 12px 6px;
+  padding: 14px 14px 10px;
+  border-radius: 16px;
+  background: var(--ion-color-step-50, #fff);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .07);
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--ion-color-medium);
+}
+
+.meta {
+  margin: 6px 0 0;
+  color: var(--ion-color-medium);
+  font-size: 13px;
+}
+
+.owner {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.owner-name {
+  color: var(--ion-text-color, #1a1a1a);
+}
+
+/* evita que el nombre herede el rojo del FAB */
+.owner-rating,
+.owner-note {
+  color: var(--ion-color-medium);
+}
+
+.desc {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+}
+
+/* CTA pegajosa */
+.cta {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 16px 18px;
+  background: linear-gradient(to top, rgba(255, 255, 255, .96), rgba(255, 255, 255, .92));
+  backdrop-filter: blur(3px);
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, .06);
+}
+
+.cta ion-button {
+  --border-radius: 14px;
+}
+
+/* Accesibilidad */
+button,
+ion-button,
+ion-fab-button {
+  outline: none;
+}
+
+button:focus-visible,
+ion-button:focus-visible,
+ion-fab-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), .35) !important;
+  border-radius: 14px;
+}
+
+
+.owner-link {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--ion-color-primary);
+  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+}
+
+.owner-link:disabled {
+  cursor: default;
+  color: var(--ion-color-medium);
+  text-decoration: none;
+}

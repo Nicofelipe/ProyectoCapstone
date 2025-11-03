@@ -1,0 +1,167 @@
+:host {
+  --card-radius: 16px;
+}
+
+ion-content {
+  --background: var(--ion-color-light);
+}
+
+/* Lista tipo “cards” */
+ion-item {
+  --padding-start: 12px;
+  --inner-padding-end: 8px;
+  --min-height: 72px;
+
+  margin: 10px 12px;
+  border-radius: var(--card-radius);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  background: #fff;
+}
+
+ion-item + ion-item {
+  margin-top: 8px;
+}
+
+/* Miniatura */
+.thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+
+/* Títulos y badges en línea */
+ion-label h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.muted { color: var(--ion-color-medium); margin: 0; }
+.owner { margin: 4px 0 0; color: var(--ion-color-primary); opacity: .85; }
+
+/* Botón “Quitar” más discreto */
+ion-button[slot="end"] {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --border-radius: 10px;
+}
+
+/* Estado vacío */
+ion-content .empty,
+.empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--ion-color-medium);
+}
+/* ====== GALERÍA ====== */
+.snap-gallery {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 0;
+  max-height: 46vh;
+  background: #f6f6f6;
+  scrollbar-width: none;
+}
+.snap-gallery::-webkit-scrollbar { display: none; }
+
+.snap-gallery img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  scroll-snap-align: start;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Dots del carrusel */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0 2px;
+}
+.dots button {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 0;
+  background: #c8c8c8;
+  opacity: .6;
+}
+.dots button.active {
+  opacity: 1;
+  background: var(--ion-color-primary);
+}
+
+/* ====== INFO ====== */
+.pad { padding: 16px; }
+.owner-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* Asegura que el nombre del usuario NO cambie de color */
+ion-item .owner-line strong {
+  color: var(--ion-text-color, #111);
+}
+.rating { color: var(--ion-color-medium); }
+
+/* ====== CTA ====== */
+.cta { padding: 12px 16px 24px; }
+
+/* ====== FAB FAVORITO ====== */
+.fav-fab {
+  margin-top: 8px;  /* separadito del borde superior */
+  margin-right: 8px;
+  z-index: 10;
+}
+
+/* Apariencia del botón en ambos estados */
+.fav-fab ion-fab-button {
+  --box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  --border-radius: 999px;
+}
+
+/* Icono un poco grande y animación sutil */
+.fav-fab ion-icon {
+  font-size: 22px;
+}
+.fav-fab ion-fab-button:active {
+  transform: scale(.96);
+  transition: transform .08s ease;
+}
+
+.thumb {
+  width: 64px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 8px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;  // recorta sin deformar
+    display: block;
+  }
+}
+
+.muted {
+  color: var(--ion-color-medium);
+  margin: 2px 0;
+}
+
+.owner {
+  margin: 2px 0 0;
+}
+
+
+@media (min-width: 480px) {
+  ion-item {
+    margin: 12px auto;
+    width: min(720px, 92%);
+  }
+}

@@ -1,0 +1,125 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Sobre nosotros</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="page">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="emoji">📚☕</div>
+    <h1 class="brand">Cambioteca</h1>
+    <p>
+      Aplicación creada para <b>recircular libros</b>, compartir saberes y
+      fomentar comunidades lectoras. Proyecto de Título en <b>DUOC UC</b>.
+    </p>
+  </section>
+
+  <!-- MISIÓN -->
+  <ion-card class="card">
+    <ion-card-header>
+      <ion-card-title>Sobre Cambioteca</ion-card-title>
+      <ion-card-subtitle>Nuestra misión</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <p>
+        Promovemos el intercambio responsable de libros, reduciendo costos y
+        dando <i>segunda vida</i> a tus títulos, con puntos de encuentro seguros.
+      </p>
+      <ul class="bullets">
+        <li>Catálogo colaborativo y solicitudes de intercambio.</li>
+        <li>Mensajería para coordinar encuentros.</li>
+        <li>Capas de ubicaciones (DUOC UC, Metro, bibliotecas).</li>
+      </ul>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- EQUIPO -->
+  <ion-card class="card">
+    <ion-card-header>
+      <ion-card-title>Quiénes somos</ion-card-title>
+      <ion-card-subtitle>Equipo del proyecto</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="team">
+        <ion-item lines="none" class="member">
+          <ion-avatar slot="start">
+            <ion-icon name="person-circle-outline"></ion-icon>
+          </ion-avatar>
+          <ion-label>
+            <div class="name">Nicolás Rebolledo</div>
+            <div class="role">Desarrollo móvil / backend</div>
+          </ion-label>
+        </ion-item>
+
+        <ion-item lines="none" class="member">
+          <ion-avatar slot="start">
+            <ion-icon name="person-circle-outline"></ion-icon>
+          </ion-avatar>
+          <ion-label>
+            <div class="name">Vicente Vargas</div>
+            <div class="role">Desarrollo web / backend</div>
+          </ion-label>
+        </ion-item>
+      </div>
+
+      <ion-note color="medium" class="thanks">
+        ¡Gracias por usar Cambioteca! Seguiremos mejorando para que tu experiencia sea cada vez mejor.
+      </ion-note>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- UBICACIONES -->
+  <ion-card class="card">
+    <ion-card-header>
+      <ion-card-title>Ubicaciones</ion-card-title>
+      <ion-card-subtitle>Puntos físicos de Cambioteca</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list lines="none">
+        <ion-item *ngFor="let p of puntos" class="place">
+          <ion-icon slot="start" name="location-outline"></ion-icon>
+          <ion-label>
+            <div class="ttl">{{ p.name || p.nombre }}</div>
+            <div class="addr">{{ p.address || p.direccion }}</div>
+          </ion-label>
+          <ion-button fill="outline" size="small" [href]="gmUrl(p)" target="_blank" rel="noopener">
+            Cómo llegar
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <div class="hint">
+        <div class="chips">
+          <ion-chip color="primary" outline>DUOC UC</ion-chip>
+          <ion-chip color="primary" outline>Metro de Santiago</ion-chip>
+        </div>
+        <p>
+          También sugerimos <b>sedes DUOC UC</b> y <b>estaciones de Metro</b>
+          como puntos de encuentro seguros. Abajo puedes ver el mapa.
+        </p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- MAPA (EMBEBIDO, SIN ION-CONTENT) -->
+  <ion-card class="card">
+    <ion-card-header>
+      <ion-card-title>Mapa de puntos de encuentro</ion-card-title>
+      <ion-card-subtitle>Cambiotecas, DUOC UC, Bibliotecas y Metro</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <app-map-cambiotecas-embed [height]="mapHeight"></app-map-cambiotecas-embed>
+
+      <div class="map-actions">
+        <ion-button fill="outline" size="small" routerLink="/cambiotecas">
+          Abrir a pantalla completa
+        </ion-button>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <div class="spacer"></div>
+</ion-content>

@@ -4,6 +4,7 @@ from .models import Usuario, PasswordResetToken
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
+from django.db.models import F
 
 from .models import Usuario, Region, Comuna, PasswordResetToken
 
@@ -155,3 +156,17 @@ class ResetPasswordSerializer(serializers.Serializer):
         prt.save(update_fields=['used'])
         return user
     
+    
+    def save(self, **kwargs):
+        prt = self.validated_data['prt']
+        user = prt.user
+
+        user.contrasena = make_password(self.validated_data['password'])
+        user.save(update_fields=['contrasena'])
+
+        # Invalidar todas las sesiones vigentes
+        type(user).objects.filter(pk=user.pk).update(token_version=F('token_version') + 1)
+
+        prt.used = True
+        prt.save(update_fields=['used'])
+        return user

@@ -1,8 +1,10 @@
 // src/app/core/services/auth.service.ts
 import { Injectable } from '@angular/core';
+import { Router } from '@angular/router'; // 👈 agrega
 import { Preferences } from '@capacitor/preferences';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import ApiService from '../services/api.service';
+
 
 export interface MeUser {
   id: number;
@@ -55,9 +57,13 @@ export class AuthService {
   private _user$ = new BehaviorSubject<MeUser | null>(null);
   user$ = this._user$.asObservable();
 
-  constructor(private api: ApiService) { this.restore(); }
+  // 👇 cache en memoria para que el interceptor pueda leer sin await
+  private tokenCache: string | null = null;
+
+  constructor(private api: ApiService, private router: Router) { this.restore(); }
 
   get user(): MeUser | null { return this._user$.value; }
+  get accessTokenSync(): string | null { return this.tokenCache; }
 
   async restoreSession() { await this.restore(); }
 
@@ -67,6 +73,7 @@ export class AuthService {
       Preferences.get({ key: TOKEN_KEY }),
       Preferences.get({ key: USER_KEY }),
     ]);
+    this.tokenCache = token ?? null;                                  // 👈 cachea
     if (token && userJson) {
       try { this._user$.next(JSON.parse(userJson) as MeUser); }
       catch { this._user$.next(null); }
@@ -79,6 +86,7 @@ export class AuthService {
     const resp = await firstValueFrom(
       this.api.post<LoginResponse>('/api/auth/login/', { email, contrasena })
     );
+    this.tokenCache = resp.access;
     await Preferences.set({ key: TOKEN_KEY, value: resp.access });
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(resp.user) });
     this._user$.next(resp.user);
@@ -100,7 +108,25 @@ export class AuthService {
   async logout() {
     await Preferences.remove({ key: TOKEN_KEY });
     await Preferences.remove({ key: USER_KEY });
+    this.tokenCache = null;                                            // 👈 limpia cache
     this._user$.next(null);
+  }
+
+  // ✅ cierre de sesión global (backend invalida todos los tokens del usuario)
+  async logoutAll() {
+    try {
+      await firstValueFrom(this.api.post('/api/auth/logout-all/', {})); // el token va por header (interceptor)
+    } catch {
+      // si ya no es válido o hay 401/403, igual limpiamos local
+    } finally {
+      await this.logout();
+    }
+  }
+
+  async forceLogout(reason?: string) {
+    await this.logout();
+    // Opcional: muestra un toast con "Sesión expirada o cerrada en otro dispositivo"
+    this.router.navigateByUrl('/auth/login', { replaceUrl: true });
   }
 
   async isLoggedIn() { return !!(await Preferences.get({ key: TOKEN_KEY })).value; }
@@ -167,5 +193,12 @@ export class AuthService {
     return await firstValueFrom(this.api.get<any[]>(`/api/users/${id}/intercambios/`));
   }
 
+  async changePassword(current: string, newPass: string) {
+    return await firstValueFrom(
+      this.api.post<{ message: string }>('/api/auth/change-password/', {
+        current, new: newPass
+      })
+    );
+  }
 
 }

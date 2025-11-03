@@ -14,21 +14,35 @@ ion-router-outlet {
   min-height: 0;
 }
 
-/* Alto del footer (ajústalo si cambias padding/tipografía) */
-:root { --footer-height: 84px; }
+/* ===== Variables globales ===== */
+:root {
+  --footer-height: 84px;
+  --tabbar-height: 64px;
+  --menu-footer-height: 66px;                  /* para el footer del menú lateral */
+  --menu-bg: var(--ion-background-color, #fff);
+  /* Botones logout (pasteles) */
+  --logout1-bg:    #e8dfe0;  /* blush grisáceo */
+  --logout1-hover: #e2d6d8;
+  --logout1-text:  #3a2f31;
+  --logout1-border:#cdb7bc;
 
-/* Espaciador: empuja el footer justo debajo del pliegue */
-.footer-reveal-guard {
-  height: var(--footer-height);
-  flex: 0 0 auto;
+  --logout2-bg:    #e3caca;  /* clay rose */
+  --logout2-hover: #dab9b9;
+  --logout2-text:  #3c2426;
 }
 
-/* Footer que se revela al llegar al final */
+/* Espaciador: empuja el footer justo debajo del pliegue */
+.footer-reveal-guard { display: none; }
+
+
+
+/* ===== Footer que se revela al llegar al final ===== */
+/* Footer base (invitado: sticky al fondo) */
 .global-footer {
-  position: sticky;        /* 👈 clave */
-  bottom: 0;               /* pegado al borde inferior cuando lo alcanzas */
+  position: sticky;
+  bottom: 0;
   z-index: 5;
-  background: var(--app-accent);  /* #aa9797 */
+  background: var(--app-accent);
   color: #fff;
   border-top: 1px solid rgba(255,255,255,0.22);
 }
@@ -46,22 +60,32 @@ ion-router-outlet {
   display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
 }
 .footer-inner ion-button {
-  --color: #ffffff;
+  --color: #fff;
   --padding-start: 10px;
   --padding-end: 10px;
 }
 
+/* ===== Cuando hay barra inferior (logueado) anclamos el footer por encima ===== */
+.app-shell.has-tabbar .global-footer {
+  position: static;       /* ya lo tenías, lo mantenemos */
+  bottom: auto;
+  margin-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+}
+.app-shell.has-tabbar .footer-reveal-guard {
+  height: calc(var(--footer-height) + var(--tabbar-height) + env(safe-area-inset-bottom));
+}
 
-/* ====== Menú: bloque usuario ====== */
+.tabbar-spacer { height: 0 !important; }
+/* ===== Menú: bloque usuario ===== */
 .menu-user {
   position: relative;
   padding: 16px 14px 6px;
   display: grid;
   justify-items: center;
   text-align: center;
-  cursor: pointer;               /* 👈 hace “clickeable” */
+  cursor: pointer;
 }
-.menu-user ion-ripple-effect {   /* bonito ripple al tocar */
+.menu-user ion-ripple-effect {
   position: absolute;
   inset: 0;
   border-radius: 12px;
@@ -70,11 +94,7 @@ ion-router-outlet {
 .menu-user-info .name { font-weight: 700; color: #2b2b2b; }
 .menu-user-info .email { font-size: 12px; color: var(--ion-color-medium); }
 
-:root {
-  --tabbar-height: 64px;
-}
-
-/* ===== Barra inferior ===== */
+/* ===== Barra inferior móvil ===== */
 .mobile-tabbar {
   position: fixed;
   left: 0; right: 0; bottom: 0;
@@ -125,15 +145,6 @@ ion-router-outlet {
   flex: 0 0 auto;
 }
 
-/* Cuando hay barra inferior, levantamos el footer y el guard */
-.app-shell.has-tabbar .global-footer {
-  margin-bottom: var(--tabbar-height); /* evita que lo tape la tabbar */
-}
-
-.app-shell.has-tabbar .footer-reveal-guard {
-  height: calc(var(--footer-height) + var(--tabbar-height));
-}
-
 /* sube un poco el botón flotante cuando el footer está visible (estético) */
 .footer-visible .mobile-tabbar .add {
   transform: translate(-50%, -60%);
@@ -145,3 +156,62 @@ ion-router-outlet {
   .tabbar-spacer { display: none; }
 }
 
+/* =========================================================
+   ✅ Footer del MENÚ con botones pastel y en negrita (sin “corte” visual)
+   ========================================================= */
+
+/* Asegura que el contenido del menú no quede tapado por su propio footer */
+ion-menu ion-content {
+  --padding-bottom: calc(var(--menu-footer-height) + 12px + env(safe-area-inset-bottom));
+}
+
+/* Footer del menú con mismo fondo del menú */
+ion-menu .menu-footer,
+ion-menu .menu-footer ion-toolbar {
+  --background: var(--menu-bg);
+  background: var(--menu-bg);
+  border-top: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: var(--menu-footer-height);
+}
+
+/* Contenedor liso, mismo fondo que el menú */
+.menu-actions {
+  background: var(--menu-bg);
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 10px;
+}
+
+/* Botones compactos, destacados y en negrita */
+.menu-actions ion-button {
+  --height: 42px;
+  --border-radius: 12px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  font-size: 13px;
+  font-weight: 700;   /* 👈 NEGRITA */
+  letter-spacing: .2px;
+}
+.menu-actions ion-icon { color: currentColor; font-size: 18px; margin-right: 4px; }
+
+/* Cerrar sesión (este dispositivo) — pastel “blush” */
+.btn-logout {
+  --background: var(--logout1-bg);
+  --background-hover: var(--logout1-hover);
+  --background-activated: var(--logout1-hover);
+  --color: var(--logout1-text);
+  --border-color: var(--logout1-border);
+}
+
+/* Cerrar en todos — pastel “clay rose” */
+.btn-logout-all {
+  --background: var(--logout2-bg);
+  --background-hover: var(--logout2-hover);
+  --background-activated: var(--logout2-hover);
+  --color: var(--logout2-text);
+}
+
+.footer-visible .mobile-tabbar .add { transform: translate(-50%, -60%); }

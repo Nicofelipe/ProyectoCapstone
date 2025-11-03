@@ -8,7 +8,10 @@ import {
   IonAvatar,
   IonBackButton, IonButton, IonButtons,
   IonCheckbox,
-  IonContent, IonHeader,
+  IonContent,
+  IonFab, IonFabButton,
+  IonHeader,
+  IonIcon,
   IonItem, IonLabel, IonList, IonMenuButton,
   IonModal,
   IonNote,
@@ -16,6 +19,8 @@ import {
   IonTitle, IonToolbar,
   ToastController
 } from '@ionic/angular/standalone';
+import { FavoritesService } from 'src/app/core/services/favorites.service';
+
 
 import { firstValueFrom } from 'rxjs';
 import { AuthService, MeUser } from '../../../core/services/auth.service';
@@ -34,6 +39,7 @@ type OwnerLite = { nombre_usuario: string; rating_avg: number | null; rating_cou
     IonButtons, IonMenuButton, IonBackButton,
     IonList, IonItem, IonLabel, IonButton,
     IonAvatar, IonModal, IonCheckbox, IonNote, IonSpinner,
+    IonIcon, IonFab, IonFabButton,
   ],
   templateUrl: './view.page.html',
   styleUrls: ['./view.page.scss'],
@@ -55,6 +61,9 @@ export class ViewPage implements OnInit {
   private occupiedIds = new Set<number>();
 
   fallbackHref = '/';
+  isFav = false;
+  isFavBusy = false;          // 👈 NUEVO
+  private favReqSeq = 0;   // <- NUEVA: secuencia para ignorar respuestas viejas    // secuencia para ignorar respuestas viejas
 
   // modal selección
   offerOpen = false;
@@ -75,15 +84,53 @@ export class ViewPage implements OnInit {
     private alert: AlertController,
     private toast: ToastController,
     private location: Location,
+    private favs: FavoritesService,
   ) { }
 
   async ngOnInit() {
     await this.auth.restoreSession();
     this.me = this.auth.user;
-
     const id = Number(this.route.snapshot.paramMap.get('id'));
     if (id) await this.load(id);
+
+    if (this.me && id) {
+      const seq = ++this.favReqSeq;
+      this.isFavBusy = true;
+      this.favs.check(id, this.me.id).subscribe({
+        next: v => { if (seq === this.favReqSeq) this.isFav = !!v; },
+        error: () => { if (seq === this.favReqSeq) this.isFav = false; },
+        complete: () => { if (seq === this.favReqSeq) this.isFavBusy = false; }
+      });
+    }
   }
+
+  async toggleFav() {
+    if (!this.me || !this.book || this.isMine() || this.isFavBusy) return;
+
+    // Si decides mantener 409 en backend, evita el post:
+    if (!this.book.disponible) {
+      (await this.toast.create({
+        message: 'Este libro no está disponible.',
+        duration: 1600,
+        color: 'medium'
+      })).present();
+      return;
+    }
+
+    const prev = this.isFav;
+    this.isFavBusy = true;
+    this.isFav = !prev;
+
+    const seq = ++this.favReqSeq;
+    this.favs.toggle(this.book.id!, this.me.id).subscribe({
+      next: () => { },
+      error: () => { if (seq === this.favReqSeq) this.isFav = prev; },
+      complete: () => { if (seq === this.favReqSeq) this.isFavBusy = false; }
+    });
+  }
+
+
+
 
   private async load(id: number) {
     this.booksSvc.get(id).subscribe({
@@ -175,6 +222,16 @@ export class ViewPage implements OnInit {
       this.location.back();
     } else {
       this.router.navigateByUrl(this.fallbackHref);
+    }
+  }
+
+  goOwner(uid?: number | null) {
+    if (!uid) return;
+    // si el libro es mío, mando a mi perfil; si no, al perfil público
+    if (this.isMine()) {
+      this.router.navigateByUrl('/profile');
+    } else {
+      this.router.navigate(['/users', uid], { state: { from: this.router.url } });
     }
   }
 

@@ -11,7 +11,7 @@ from .views import (
     crear_solicitud_intercambio, listar_solicitudes_recibidas, listar_solicitudes_enviadas,
     aceptar_solicitud, rechazar_solicitud, proponer_encuentro, confirmar_encuentro,
     generar_codigo, completar_intercambio, cancelar_solicitud, cancelar_intercambio,
-    libros_ofrecidos_ocupados,calificar_intercambio, mi_calificacion
+    libros_ofrecidos_ocupados,calificar_intercambio, mi_calificacion, favoritos_check, favoritos_toggle, favoritos_list
 )
 
 
@@ -64,6 +64,17 @@ urlpatterns = [
     path('intercambios/<int:intercambio_id>/mi-calificacion/', mi_calificacion),
 
 
+# ===== Favoritos =====
+    # GET    /favoritos/?user_id=123                       → listado de favoritos del usuario (cards)
+    # GET    /libros/<libro_id>/favorito/check/?user_id=…  → bool si ese libro está en favoritos del user
+    # POST   /libros/<libro_id>/favorito/toggle/           → body: {"user_id": 123}
+    path("favoritos/", views.favoritos_list, name="favoritos-list"),
+    path("favoritos/<int:libro_id>/check/", views.favoritos_check, name="favoritos-check"),
+    path("favoritos/<int:libro_id>/toggle/", views.favoritos_toggle, name="favoritos-toggle"),
+
+    # (Opcional) aliases retro-compatibles si antes llamabas /api/libros/.../favorito/...
+    path("libros/<int:libro_id>/favorito/check/", views.favoritos_check),
+    path("libros/<int:libro_id>/favorito/toggle/", views.favoritos_toggle),
 
     path('libros/by-title/', books_by_title),
 ]

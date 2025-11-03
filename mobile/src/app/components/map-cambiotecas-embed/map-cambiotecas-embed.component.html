@@ -1,0 +1,20 @@
+<div class="map-root" [style.--map-h.px]="height">
+  <div class="controls">
+    <ion-segment [value]="activeLayer" (ionChange)="onSegmentChange($event)">
+      <ion-segment-button value="cambiotecas"><ion-label>Cambiotecas</ion-label></ion-segment-button>
+      <ion-segment-button value="duoc"><ion-label>DUOC UC</ion-label></ion-segment-button>
+      <ion-segment-button value="bibliotecas"><ion-label>Bibliotecas</ion-label></ion-segment-button>
+      <ion-segment-button value="metro"><ion-label>Metro</ion-label></ion-segment-button>
+    </ion-segment>
+    <div class="count">{{ pinCount }} pts</div>
+  </div>
+
+  <div #mapEl class="map"></div>
+
+  <div class="legend">
+    <span class="dot purple"></span> Cambiotecas
+    <span class="dot blue"></span> DUOC UC
+    <span class="dot green"></span> Bibliotecas
+    <span class="dot red"></span> Metro
+  </div>
+</div>

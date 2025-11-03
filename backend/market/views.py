@@ -23,7 +23,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Libro, Intercambio, ImagenLibro, LibroSolicitudesVistas, Conversacion, ConversacionParticipante, ConversacionMensaje, Genero, Intercambio, IntercambioCodigo, SolicitudIntercambio, SolicitudOferta, Intercambio, Conversacion, Libro
+from .models import Libro,Favorito, Intercambio, ImagenLibro, LibroSolicitudesVistas, Conversacion, ConversacionParticipante, ConversacionMensaje, Genero, Intercambio, IntercambioCodigo, SolicitudIntercambio, SolicitudOferta, Intercambio, Conversacion, Libro
 from .serializers import LibroSerializer, GeneroSerializer, SolicitudIntercambioSerializer, ProponerEncuentroSerializer, ConfirmarEncuentroSerializer, GenerarCodigoSerializer, CompletarConCodigoSerializer
 from datetime import date
 from django.db import IntegrityError, transaction 
@@ -1945,8 +1945,22 @@ def completar_intercambio(request, intercambio_id: int):
     try:
         with connection.cursor() as cur:
             cur.callproc("sp_marcar_intercambio_completado", [intercambio_id, fecha])
+
+        # 🔥 NUEVO: limpiar favoritos de ambos libros involucrados
+        try:
+            booked_ids = [
+                it.id_libro_ofrecido_aceptado_id,
+                getattr(it.id_solicitud, "id_libro_deseado_id", None),
+            ]
+            Favorito.objects.filter(id_libro_id__in=[x for x in booked_ids if x]).delete()
+        except Exception:
+            # no bloquear el flujo por limpieza de favoritos
+            pass
+
         return Response({"ok": True})
+
     except Exception as e:
+        # rollback del uso del código si el SP falló
         ctrl.usado_en = None
         ctrl.save(update_fields=["usado_en"])
         return Response({"detail": str(e)}, status=400)
@@ -2011,3 +2025,98 @@ def mi_calificacion(request, intercambio_id: int):
     return Response(row or {})
 
 
+# ========= FAVORITOS =========
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def favoritos_list(request):
+    """
+    GET /api/favoritos/?user_id=123
+    Devuelve libros marcados como favoritos por el usuario.
+    """
+    user_id = request.query_params.get("user_id")
+    if not user_id:
+        return Response({"detail": "Falta user_id"}, status=400)
+
+    # portada o primera imagen
+    portada_sq = (ImagenLibro.objects
+        .filter(id_libro=OuterRef("pk"), is_portada=True)
+        .order_by("id_imagen").values_list("url_imagen", flat=True)[:1])
+    first_by_order_sq = (ImagenLibro.objects
+        .filter(id_libro=OuterRef("pk"))
+        .order_by("orden", "id_imagen").values_list("url_imagen", flat=True)[:1])
+
+    qs = (Libro.objects
+          .filter(id_libro__in=Favorito.objects
+                  .filter(id_usuario_id=user_id)
+                  .values_list("id_libro_id", flat=True)))
+    qs = (qs
+          .select_related("id_usuario")
+          .annotate(first_image=Coalesce(Subquery(portada_sq), Subquery(first_by_order_sq)))
+          .order_by("-fecha_subida", "-id_libro"))
+
+    data = []
+    for b in qs:
+        rel = (b.first_image or "").replace("\\", "/")
+        data.append({
+            "id": b.id_libro,
+            "titulo": b.titulo,
+            "autor": b.autor,
+            "estado": b.estado,
+            "disponible": bool(b.disponible),
+            "fecha_subida": b.fecha_subida,
+            "first_image": media_abs(request, rel) if rel else None,
+            "owner_nombre": getattr(b.id_usuario, "nombre_usuario", None),
+            "owner_id": getattr(b.id_usuario, "id_usuario", None),
+        })
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def favoritos_check(request, libro_id: int):
+    """
+    GET /api/favoritos/<libro_id>/check?user_id=123
+    """
+    user_id = request.query_params.get("user_id")
+    if not user_id:
+        return Response({"favorited": False})
+    exists = Favorito.objects.filter(id_usuario_id=user_id, id_libro_id=libro_id).exists()
+    return Response({"favorited": bool(exists)})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def favoritos_toggle(request, libro_id: int):
+    """
+    POST /api/favoritos/<libro_id>/toggle?user_id=123
+    Reglas:
+      - no puedes marcar tus propios libros
+      - solo libros disponibles
+      - toggle on/off
+    """
+    user_id = request.query_params.get("user_id") or request.data.get("user_id")
+    if not user_id:
+        return Response({"detail": "Falta user_id"}, status=400)
+
+    # ¿existe ya?
+    obj = Favorito.objects.filter(id_usuario_id=user_id, id_libro_id=libro_id).first()
+    if obj:
+        obj.delete()
+        return Response({"favorited": False})
+
+    # validar libro
+    b = Libro.objects.filter(pk=libro_id).only("id_libro", "id_usuario_id", "disponible").first()
+    if not b:
+        return Response({"detail": "Libro no encontrado."}, status=404)
+    if int(b.id_usuario_id) == int(user_id):
+        return Response({"detail": "No puedes marcar como favorito tu propio libro."}, status=400)
+    if not bool(b.disponible):
+        return Response({"detail": "El libro no está disponible."}, status=409)
+
+    # crear (si metes el índice UNIQUE, evita duplicados de carrera)
+    try:
+        Favorito.objects.get_or_create(id_usuario_id=user_id, id_libro_id=libro_id)
+        return Response({"favorited": True}, status=201)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=400)

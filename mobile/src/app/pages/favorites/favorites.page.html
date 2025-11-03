@@ -1,0 +1,41 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Favoritos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list *ngIf="items?.length; else empty">
+    <ion-item button detail="true" *ngFor="let b of items" (click)="open(b.id)">
+      <ion-thumbnail slot="start" class="thumb">
+        <img
+          [src]="coverUrl(b)"
+          (error)="onImgError($event)"
+          alt="portada"
+          loading="lazy"
+        />
+      </ion-thumbnail>
+
+      <ion-label>
+        <h2>
+          {{ b.titulo }}
+          <ion-badge style="margin-left:6px" [color]="b.disponible ? 'success' : 'medium'">
+            {{ b.disponible ? 'Disponible' : 'No disp.' }}
+          </ion-badge>
+        </h2>
+        <p class="muted">de {{ b.autor || '—' }}</p>
+        <p class="owner"><strong>@{{ b.owner_nombre || '—' }}</strong></p>
+      </ion-label>
+
+      <ion-button slot="end" fill="clear" color="danger"
+                  (click)="$event.stopPropagation(); remove(b.id)">
+        Quitar
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+  <ng-template #empty>
+    <div style="padding:16px">Aún no tienes libros en Favoritos.</div>
+  </ng-template>
+</ion-content>

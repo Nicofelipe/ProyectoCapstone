@@ -2,12 +2,20 @@
 
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { Subscription } from 'rxjs';
 import { AuthService, MeUser } from 'src/app/core/services/auth.service';
 import { environment } from 'src/environments/environment';
+
+
+const STRONG_PWD_RX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\s]).{8,}$/;
+function matchPasswords(ctrl: AbstractControl) {
+  const p = ctrl.get('password')?.value;
+  const c = ctrl.get('confirm')?.value;
+  return p && c && p === c ? null : { mismatch: true };
+}
 
 @Component({
   selector: 'app-profile',
@@ -19,6 +27,18 @@ import { environment } from 'src/environments/environment';
 export class ProfilePage implements OnInit, OnDestroy {
   // Tabs
   tab = signal<'info' | 'history' | 'settings'>('info');
+
+
+  //CAMBIAR PASSWORD
+  showPwd = signal(false);
+  busyPwd = false;
+
+  pwdForm = this.fb.group({
+    current: ['', [Validators.required]],
+    password: ['', [Validators.required, Validators.pattern(STRONG_PWD_RX)]],
+    confirm: ['', [Validators.required]],
+  }, { validators: matchPasswords });
+
 
   // Estado
   user = signal<MeUser | null>(null);
@@ -209,7 +229,35 @@ export class ProfilePage implements OnInit, OnDestroy {
     }
   }
 
-  async goChangePassword() { this.router.navigateByUrl('/auth/forgot'); }
+  togglePwd() { this.showPwd.update(v => !v); }
+
+  async submitPwd() {
+    if (this.pwdForm.invalid) { this.pwdForm.markAllAsTouched(); return; }
+    this.busyPwd = true;
+    try {
+      const { current, password } = this.pwdForm.value;
+      await this.auth.changePassword(current!, password!);
+
+      (await this.toast.create({
+        message: 'Contraseña actualizada correctamente.',
+        duration: 2000,
+        color: 'success'
+      })).present();
+
+      this.pwdForm.reset();
+      this.showPwd.set(false);
+
+      // Opcional: invalidar sesiones de otros dispositivos
+      // await this.auth.logoutAll();
+      // this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+
+    } catch (e: any) {
+      const msg = e?.error?.detail || e?.error?.message || 'No se pudo actualizar la contraseña';
+      (await this.toast.create({ message: msg, color: 'danger', duration: 2500 })).present();
+    } finally {
+      this.busyPwd = false;
+    }
+  }
 
   async doLogout() {
     await this.auth.logout();

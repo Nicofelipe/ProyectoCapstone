@@ -31,6 +31,12 @@ const routes: Routes = [
   { path: 'requests/:id', loadComponent: () => import('./pages/request-detail/request-detail.page').then(m => m.RequestDetailPage),},
   { path: 'users/:id', loadComponent: () => import('./pages/user-profile/user-profile.page').then(m => m.UserProfilePage) },
 
+  { path: 'favorites',loadComponent: () => import('./pages/favorites/favorites.page').then(m => m.FavoritesPage),},
+  { path: 'about', loadComponent: () => import('./pages/about-us/about-us.page').then(m => m.AboutUsPage),},
+
+  //MAPAS
+  { path: 'cambiotecas',loadComponent: () => import('./pages/cambiotecas/map-cambiotecas.page').then(m => m.MapCambiotecasPage),},
+  { path: 'about/map', loadComponent: () => import('./pages/cambiotecas/map-cambiotecas.page').then(m => m.MapCambiotecasPage) },
   { path: '**', redirectTo: 'home' },
 ];
 

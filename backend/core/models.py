@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 
+
 class PasswordResetToken(models.Model):
     user = models.ForeignKey('core.Usuario', on_delete=models.CASCADE, related_name='reset_tokens')
     token = models.CharField(max_length=128, unique=True)
@@ -63,6 +64,7 @@ class Usuario(models.Model):
     direccion = models.CharField(max_length=255)
     numeracion = models.CharField(max_length=10)
     es_admin = models.BooleanField(default=False)  
+    token_version = models.PositiveIntegerField(default=0) 
 
     # En la tabla el campo es comuna_id, mantenemos ese nombre con db_column
     comuna = models.ForeignKey(
@@ -82,6 +84,15 @@ class Usuario(models.Model):
 
     activo = models.BooleanField(default=False)
     verificado = models.BooleanField(default=False)
+
+     # ✅ agrega estas dos properties
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    @property
+    def is_anonymous(self) -> bool:
+        return False
 
     class Meta:
         db_table = 'usuario'

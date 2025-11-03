@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common'; // NgIf/NgFor
-import { Component } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 // Ionic (puedes usar IonicModule completo para no listar uno a uno)
-import { IonicModule, LoadingController, ToastController } from '@ionic/angular';
+import { IonContent, IonicModule, LoadingController, ToastController } from '@ionic/angular';
 
 import { AuthService } from 'src/app/core/services/auth.service';
 
@@ -23,6 +23,8 @@ import { AuthService } from 'src/app/core/services/auth.service';
   ],
 })
 export class LoginPage {
+   @ViewChild(IonContent, { static: true }) content!: IonContent;
+
   form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required]],
@@ -35,6 +37,13 @@ export class LoginPage {
     private toast: ToastController,
     private loadingCtrl: LoadingController
   ) { }
+
+  ionViewWillEnter() {
+    // Espera al frame y sube al tope (sin animación)
+    requestAnimationFrame(() => this.content?.scrollToTop(0));
+    // por si la vista anterior dejó el scroll del documento
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+  }
 
   async submit() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }

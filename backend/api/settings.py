@@ -21,6 +21,7 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 # Sugerido en Railway: ALLOWED_HOSTS=".up.railway.app"
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 
+
 # --- Apps ---
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -107,6 +108,9 @@ DATABASES = {
     }
 }
 
+
+
+
 # --- Password validators ---
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -148,7 +152,7 @@ CSRF_TRUSTED_ORIGINS = env_list(
 # --- DRF / Auth ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.UsuarioJWTAuthentication", 
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -157,17 +161,27 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "USER_ID_FIELD": "id_usuario",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# --- Email (mueve credenciales a variables) ---
+# --- Email (Gmail) ---
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "True") == "True"
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
-FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", "http://localhost:8100/auth/reset")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")            
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")    
+
+# 👇 fallback robusto: si DEFAULT_FROM_EMAIL está vacío, usa EMAIL_HOST_USER; si también está vacío, usa uno de emergencia
+DEFAULT_FROM_EMAIL = (
+    os.getenv("DEFAULT_FROM_EMAIL")
+    or EMAIL_HOST_USER
+    or "cambioteca.cl@gmail.com"
+)
+
+FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", "http://localhost:8100/auth/reset-password")
