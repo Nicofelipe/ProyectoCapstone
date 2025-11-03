@@ -20,6 +20,17 @@ export class ConfigService {
         const baseRaw = env.apiBase ?? env.apiUrl ?? '';
         const base = baseRaw.replace(/\/$/, ''); // quita slash final
 
+        const candidates = [
+            `${base}/api/public/config/`,
+            `${base}/api/public/config`,
+        ];
+
+        for (const url of candidates) {
+            const res = await fetch(url, { credentials: 'omit' });
+            if (res.ok) { this.cfg = await res.json(); return; }
+        }
+        throw new Error('No se pudo obtener /api/public/config');
+
 
         const res = await fetch(`${base}/api/public/config`);
         if (!res.ok) throw new Error('No se pudo obtener /api/public/config');
