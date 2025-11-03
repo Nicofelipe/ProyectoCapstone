@@ -6,5 +6,5 @@ from .views_public import PublicConfigView
 urlpatterns = [
     path("auth/login/", login_issue_tokens, name="login"),
     path("auth/logout-all/", logout_all_devices, name="logout_all"),
-    path("api/public/config", PublicConfigView.as_view(), name="public-config"),
+    path("public/config/", PublicConfigView.as_view(), name="public-config"),
 ]
