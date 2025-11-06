@@ -2,8 +2,9 @@
 
 from django.db import models
 from rest_framework import serializers
-from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO
+from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO
 from django.utils import timezone
+
 
 class Genero(models.Model):
     id_genero = models.AutoField(primary_key=True)
@@ -105,6 +106,9 @@ class Favorito(models.Model):
     class Meta:
         db_table = 'favorito'
         managed = False
+        constraints = [
+            models.UniqueConstraint(fields=['id_usuario','id_libro'], name='uniq_favorito_usuario_libro'),
+    ]
 
     def __str__(self):
         return f"Fav #{self.id_favorito} — Usuario {self.id_usuario_id} / Libro {self.id_libro_id}"
@@ -197,8 +201,12 @@ class Conversacion(models.Model):
         managed = False
 
 
-# market/models.py
-from django.db import models
+ROL_CHOICES = [
+    ("solicitante", "Solicitante"),
+    ("ofreciente",  "Ofreciente"),
+    ("admin",       "Admin"),
+    ("soporte",     "Soporte"),
+]
 
 class ConversacionParticipante(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -214,8 +222,10 @@ class ConversacionParticipante(models.Model):
         db_column='id_usuario',
         on_delete=models.CASCADE,
         related_name='conversaciones',
+        null=False,           # ← permitir nulos temporalmente
+        blank=False
     )
-    rol = models.CharField(max_length=20, null=True, blank=True)
+    rol = models.CharField(max_length=20, null=True, blank=True, choices=ROL_CHOICES)
     silenciado = models.BooleanField(default=False)
     archivado = models.BooleanField(default=False)
     ultimo_visto_id_mensaje = models.IntegerField(default=0, db_column='ultimo_visto_id_mensaje')
@@ -223,7 +233,7 @@ class ConversacionParticipante(models.Model):
 
     class Meta:
         db_table = 'conversacion_participante'
-        managed = True
+        managed = False
         constraints = [
             models.UniqueConstraint(
                 fields=['id_conversacion', 'id_usuario'],
@@ -326,6 +336,70 @@ class IntercambioCodigo(models.Model):
     class Meta:
         db_table = 'intercambio_codigo'
         managed = False
+
+
+class PuntoEncuentro(models.Model):
+    nombre = models.CharField(max_length=120)
+    tipo = models.CharField(max_length=20, choices=[(k, v) for k, v in PUNTO_TIPO.items()])
+    place_id = models.CharField(max_length=128, null=True, blank=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6)
+    direccion = models.CharField(max_length=255, null=True, blank=True)
+    habilitado = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'market_punto_encuentro'
+        managed = False
+        indexes = [models.Index(fields=["tipo", "habilitado"])]
+
+    def __str__(self):
+        return self.nombre
+    
+
+
+class PropuestaEncuentro(models.Model):
+    id_intercambio = models.ForeignKey('market.Intercambio',
+                                       on_delete=models.CASCADE,
+                                       related_name='propuestas')
+    propuesta_por = models.ForeignKey('core.Usuario',
+                                      on_delete=models.CASCADE,
+                                      related_name='propuestas_creadas')
+
+    metodo = models.CharField(max_length=10, choices=[(k, v) for k, v in MEETING_METHOD.items()])
+
+    # Modo MANUAL
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    direccion = models.CharField(max_length=255, null=True, blank=True)
+
+    # Modo PREDEF
+    id_punto = models.ForeignKey('market.PuntoEncuentro', null=True, blank=True,
+                                 on_delete=models.SET_NULL, related_name='propuestas')
+
+    fecha_hora = models.DateTimeField()
+    notas = models.CharField(max_length=240, null=True, blank=True)
+
+    estado = models.CharField(max_length=10,
+                              choices=[(k, v) for k, v in PROPOSAL_STATE.items()],
+                              default="PENDIENTE")
+    decidida_por = models.ForeignKey('core.Usuario', null=True, blank=True,
+                                     on_delete=models.SET_NULL, related_name='propuestas_decididas')
+    decidida_en = models.DateTimeField(null=True, blank=True)
+
+    activa = models.BooleanField(default=True)  # útil para filtros rápidos
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'market_propuestaencuentro'
+        managed = False
+        indexes = [
+            models.Index(fields=["id_intercambio", "estado"]),
+            models.Index(fields=["id_intercambio", "activa"]),
+        ]
+
+    def __str__(self):
+        return f"Propuesta #{self.pk} / Intercambio {self.id_intercambio_id} / {self.estado}"
 
 
 

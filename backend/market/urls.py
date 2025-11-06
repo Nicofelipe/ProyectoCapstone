@@ -11,7 +11,8 @@ from .views import (
     crear_solicitud_intercambio, listar_solicitudes_recibidas, listar_solicitudes_enviadas,
     aceptar_solicitud, rechazar_solicitud, proponer_encuentro, confirmar_encuentro,
     generar_codigo, completar_intercambio, cancelar_solicitud, cancelar_intercambio,
-    libros_ofrecidos_ocupados,calificar_intercambio, mi_calificacion, favoritos_check, favoritos_toggle, favoritos_list
+    libros_ofrecidos_ocupados,calificar_intercambio, mi_calificacion, favoritos_check, favoritos_toggle, favoritos_list,
+    propuesta_actual
 )
 
 
@@ -64,6 +65,11 @@ urlpatterns = [
     path('intercambios/<int:intercambio_id>/mi-calificacion/', mi_calificacion),
 
 
+
+    path('puntos-encuentro/', views.puntos_encuentro),
+    path("intercambios/<int:intercambio_id>/propuesta-actual/", propuesta_actual),
+
+
 # ===== Favoritos =====
     # GET    /favoritos/?user_id=123                       → listado de favoritos del usuario (cards)
     # GET    /libros/<libro_id>/favorito/check/?user_id=…  → bool si ese libro está en favoritos del user
@@ -77,6 +83,7 @@ urlpatterns = [
     path("libros/<int:libro_id>/favorito/toggle/", views.favoritos_toggle),
 
     path('libros/by-title/', books_by_title),
+
 ]
 
 urlpatterns += router.urls

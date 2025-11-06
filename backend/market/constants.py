@@ -13,3 +13,25 @@ INTERCAMBIO_ESTADO = {
     "CANCELADO": "Cancelado",
     "RECHAZADO": "Rechazado",
 }
+
+
+MEETING_METHOD = {
+    "MANUAL": "Manual",
+    "PREDEF": "Predefinido",
+}
+
+# Estado de una propuesta de encuentro
+PROPOSAL_STATE = {
+    "PENDIENTE": "Pendiente",
+    "ACEPTADA": "Aceptada",
+    "RECHAZADA": "Rechazada",
+}
+
+# Tipos de puntos predefinidos (para filtrar en el front)
+PUNTO_TIPO = {
+    "DUOC": "DUOC",
+    "BIBLIOTECA": "Biblioteca",
+    "CAMBIOTECA": "Cambioteca",
+    "METRO": "Metro",
+    "OTRO": "Otro",
+}

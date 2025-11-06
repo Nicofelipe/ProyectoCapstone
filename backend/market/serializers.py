@@ -1,7 +1,8 @@
 
-from .models import Libro, ImagenLibro, Genero, SolicitudIntercambio, SolicitudOferta
+from .models import Libro, ImagenLibro, Genero, SolicitudIntercambio, SolicitudOferta,  PuntoEncuentro, PropuestaEncuentro, Intercambio
 from core.serializers import UsuarioLiteSerializer
 from rest_framework import serializers
+from django.db.models import Q
 from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO
 
 
@@ -21,6 +22,10 @@ class LibroSerializer(serializers.ModelSerializer):
     id_genero = serializers.IntegerField(source='id_genero_id', read_only=True)
     genero_nombre = serializers.SerializerMethodField()
 
+     # 👇 NUEVO: campos calculados/annotated
+    en_negociacion = serializers.SerializerMethodField()
+    public_disponible = serializers.SerializerMethodField()
+
     class Meta:
         model = Libro
         fields = [
@@ -30,7 +35,29 @@ class LibroSerializer(serializers.ModelSerializer):
             'disponible', 'fecha_subida',
             'owner_nombre', 'owner_id',
             'id_genero', 'genero_nombre',
+            'en_negociacion', 'public_disponible',   # 👈 NUEVO
         ]
+    def get_en_negociacion(self, obj):
+        """
+        Usa la anotación si viene del queryset; si no, calcula on-demand (detalle).
+        """
+        v = getattr(obj, 'en_negociacion', None)
+        if v is not None:
+            return bool(v)
+        # Fallback seguro para retrieve directo
+        return Intercambio.objects.filter(
+            Q(id_libro_ofrecido_aceptado_id=obj.id_libro) |
+            Q(id_solicitud__id_libro_deseado_id=obj.id_libro),
+            estado_intercambio__in=['Pendiente', 'Aceptado'],
+        ).exists()
+
+    def get_public_disponible(self, obj):
+        v = getattr(obj, 'public_disponible', None)
+        if v is not None:
+            return bool(v)
+        # Si no viene anotado: disponible y no en negociación
+        return bool(obj.disponible) and not self.get_en_negociacion(obj)
+    
 
     def get_owner_id(self, obj):
         return getattr(obj, 'id_usuario_id', None)
@@ -57,6 +84,8 @@ class LibroSerializer(serializers.ModelSerializer):
     def get_genero_nombre(self, obj):
         g = getattr(obj, 'id_genero', None)
         return getattr(g, 'nombre', None) if g else None
+    
+    
 
 
 # 👇 la dejamos igual; no rompe mientras no la instancies desde una vista.
@@ -169,10 +198,26 @@ class SolicitudIntercambioSerializer(serializers.ModelSerializer):
 
     def get_lugar_intercambio(self, obj):
         inter = self._ultimo_inter(obj)
+        if not inter:
+            return None
+        # Preferir propuesta aceptada
+        p = PropuestaEncuentro.objects.filter(
+            id_intercambio=inter, estado="ACEPTADA"
+        ).order_by('-id').first()
+        if p:
+            return p.direccion or getattr(getattr(p, 'id_punto', None), 'nombre', None)
+        # fallback al campo del Intercambio
         return getattr(inter, 'lugar_intercambio', None)
 
     def get_fecha_intercambio_pactada(self, obj):
         inter = self._ultimo_inter(obj)
+        if not inter:
+            return None
+        p = PropuestaEncuentro.objects.filter(
+            id_intercambio=inter, estado="ACEPTADA"
+        ).order_by('-id').first()
+        if p:
+            return p.fecha_hora
         return getattr(inter, 'fecha_intercambio_pactada', None)
 
     def get_fecha_completado(self, obj):
@@ -193,3 +238,13 @@ class CompletarConCodigoSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     codigo = serializers.CharField(max_length=12, allow_blank=False, trim_whitespace=True)
     fecha = serializers.DateField(required=False, allow_null=True)
+
+class PuntoEncuentroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PuntoEncuentro
+        fields = "__all__"
+
+class PropuestaEncuentroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropuestaEncuentro
+        fields = "__all__"

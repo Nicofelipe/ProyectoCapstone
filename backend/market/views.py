@@ -1,44 +1,44 @@
+import os, uuid
 from collections import defaultdict
-import os
-import uuid
+from datetime import date
 from django.db.models import Prefetch
-from django.db import connection 
 from django.conf import settings
 from django.core.files.storage import default_storage
-from rest_framework import serializers as drf_serializers
-
-
-
-from django.db.models import (
-    Q, F, Value, Count, IntegerField,
-    Exists, Subquery, OuterRef, Max, Avg,BooleanField, Case, When
-)
-from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-
-from rest_framework import permissions, viewsets, status
+from django.utils.dateparse import parse_datetime
+from django.db import connection, transaction, IntegrityError
+from django.db.models import (
+    Q, F, Value, Count, IntegerField, Exists, Subquery, OuterRef, Max, Avg,
+    BooleanField, Case, When
+)
+from django.db.models.functions import Coalesce, Greatest
+from rest_framework import permissions, viewsets, status, serializers as drf_serializers
 from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Libro,Favorito, Intercambio, ImagenLibro, LibroSolicitudesVistas, Conversacion, ConversacionParticipante, ConversacionMensaje, Genero, Intercambio, IntercambioCodigo, SolicitudIntercambio, SolicitudOferta, Intercambio, Conversacion, Libro
-from .serializers import LibroSerializer, GeneroSerializer, SolicitudIntercambioSerializer, ProponerEncuentroSerializer, ConfirmarEncuentroSerializer, GenerarCodigoSerializer, CompletarConCodigoSerializer
-from datetime import date
-from django.db import IntegrityError, transaction 
-
-
-from django.utils.dateparse import parse_datetime
-from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO
-
-inter_prefetch = Prefetch(
-    'intercambio',
-    queryset=Intercambio.objects
-        .select_related('id_libro_ofrecido_aceptado')
-        .order_by('-id_intercambio')
+from .models import (
+    Libro, Genero, Favorito, ImagenLibro, LibroSolicitudesVistas,
+    SolicitudIntercambio, SolicitudOferta, Intercambio,
+    Conversacion, ConversacionParticipante, ConversacionMensaje,
+    PuntoEncuentro, PropuestaEncuentro, IntercambioCodigo
 )
+from .serializers import (
+    LibroSerializer, GeneroSerializer, SolicitudIntercambioSerializer,
+    ProponerEncuentroSerializer, ConfirmarEncuentroSerializer,
+    GenerarCodigoSerializer, CompletarConCodigoSerializer, PuntoEncuentroSerializer
+)
+from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO
 
+def _inter_prefetch():
+    return Prefetch(
+        'intercambio',
+        queryset=Intercambio.objects
+            .select_related('id_libro_ofrecido_aceptado')
+            .order_by('-id_intercambio')
+    )
 
 
 @api_view(["GET"])
@@ -1011,98 +1011,95 @@ def delete_book(request, libro_id: int):
 @permission_classes([AllowAny])  # cambia a IsAuthenticated en prod
 def crear_intercambio(request):
     """
-    Body JSON:
+    Bridge legacy:
+    Crea una SolicitudIntercambio con 1 oferta, la marca ACEPTADA y crea el Intercambio.
+    Body:
     {
       "id_usuario_solicitante": 1,
-      "id_libro_ofrecido": 101,
-      "id_usuario_ofreciente": 2,
+      "id_libro_ofrecido": 101,      # del solicitante
+      "id_usuario_ofreciente": 2,    # dueño del libro solicitado
       "id_libro_solicitado": 104,
-      "lugar_intercambio": "Metro Baquedano",
-      "fecha_intercambio": "YYYY-MM-DD"   # opcional
+      "lugar_intercambio": "Metro ...",
+      "fecha_intercambio": "YYYY-MM-DD"  # opcional
     }
     """
+    from .models import SolicitudIntercambio, SolicitudOferta, Libro, Intercambio, Conversacion, ConversacionParticipante
     data = request.data
 
-    required = [
-        "id_usuario_solicitante", "id_libro_ofrecido",
-        "id_usuario_ofreciente",  "id_libro_solicitado",
-        "lugar_intercambio"
-    ]
-    miss = [k for k in required if str(data.get(k) or "").strip() == ""]
-    if miss:
-        return Response({"detail": f"Faltan: {', '.join(miss)}"}, status=400)
-
-    # Parseo IDs
     try:
-        uid_sol = int(data["id_usuario_solicitante"])
-        uid_ofr = int(data["id_usuario_ofreciente"])
-        libro_ofr_id = int(data["id_libro_ofrecido"])
-        libro_sol_id = int(data["id_libro_solicitado"])
+        uid_sol = int(data.get("id_usuario_solicitante"))
+        uid_ofr = int(data.get("id_usuario_ofreciente"))
+        libro_ofr_id = int(data.get("id_libro_ofrecido"))
+        libro_sol_id = int(data.get("id_libro_solicitado"))
     except (TypeError, ValueError):
         return Response({"detail": "IDs inválidos."}, status=400)
 
-    if uid_sol == uid_ofr:
-        return Response({"detail": "No puedes intercambiar contigo mismo."}, status=400)
-    if libro_ofr_id == libro_sol_id:
-        return Response({"detail": "Los libros ofrecido y solicitado no pueden ser el mismo."}, status=400)
+    if uid_sol == uid_ofr or libro_ofr_id == libro_sol_id:
+        return Response({"detail": "IDs inconsistentes."}, status=400)
 
-    # Cargar libros y validar pertenencia/disponibilidad
-    lo = Libro.objects.filter(pk=libro_ofr_id).first()
-    ls = Libro.objects.filter(pk=libro_sol_id).first()
+    lo = Libro.objects.filter(pk=libro_ofr_id, id_usuario_id=uid_sol, disponible=True).first()
+    ls = Libro.objects.filter(pk=libro_sol_id, id_usuario_id=uid_ofr, disponible=True).first()
     if not lo or not ls:
-        return Response({"detail": "Libro no encontrado."}, status=404)
+        return Response({"detail": "Libros no válidos o no disponibles."}, status=400)
 
-    if lo.id_usuario_id != uid_sol:
-        return Response({"detail": "El libro ofrecido no te pertenece."}, status=400)
-    if ls.id_usuario_id != uid_ofr:
-        return Response({"detail": "El libro solicitado no pertenece al usuario destino."}, status=400)
-
-    if not lo.disponible:
-        return Response({"detail": "Tu libro ofrecido no está disponible."}, status=400)
-    if not ls.disponible:
-        return Response({"detail": "El libro solicitado ya no está disponible."}, status=400)
-
-    # Evitar duplicados 'Pendiente' entre las mismas 4 entidades
-    dup = Intercambio.objects.filter(
-        id_usuario_solicitante_id=uid_sol,
-        id_usuario_ofreciente_id=uid_ofr,
-        id_libro_ofrecido_id=libro_ofr_id,
-        id_libro_solicitado_id=libro_sol_id,
-        estado_intercambio="Pendiente",
-    ).exists()
-    if dup:
-        return Response({"detail": "Ya existe una solicitud pendiente con estos mismos libros."}, status=400)
-
-    # Fecha
     fecha = None
-    fecha_raw = (data.get("fecha_intercambio") or "").strip()
-    if fecha_raw:
+    raw_fecha = (data.get("fecha_intercambio") or "").strip()
+    if raw_fecha:
         try:
-            fecha = date.fromisoformat(fecha_raw)  # YYYY-MM-DD
+            fecha = date.fromisoformat(raw_fecha)
         except Exception:
-            return Response({"detail": "fecha_intercambio inválida. Usa YYYY-MM-DD."}, status=400)
-    # Si tu columna NO acepta NULL, descomenta:
-    # else:
-    #     fecha = timezone.now().date()
+            return Response({"detail": "fecha_intercambio inválida (YYYY-MM-DD)."}, status=400)
 
-    try:
-        obj = Intercambio.objects.create(
+    lugar = (data.get("lugar_intercambio") or "A coordinar").strip()[:255]
+
+    # Guards: no permitir duplicadas aceptadas o pendientes iguales
+    if Intercambio.objects.filter(
+        id_solicitud__id_libro_deseado_id=libro_sol_id,
+        estado_intercambio__iexact="Aceptado",
+    ).exists():
+        return Response({"detail": "El libro solicitado ya está comprometido en un intercambio aceptado."}, status=409)
+
+    with transaction.atomic():
+        # crear solicitud + oferta
+        si = SolicitudIntercambio.objects.create(
             id_usuario_solicitante_id=uid_sol,
-            id_usuario_ofreciente_id=uid_ofr,
-            id_libro_ofrecido_id=libro_ofr_id,
-            id_libro_solicitado_id=libro_sol_id,
-            lugar_intercambio=str(data["lugar_intercambio"]).strip()[:255],
-            fecha_intercambio=fecha,
-            estado_intercambio="Pendiente",
+            id_usuario_receptor_id=uid_ofr,
+            id_libro_deseado_id=libro_sol_id,
+            estado="Aceptada",
+            creada_en=timezone.now(),
+            actualizada_en=timezone.now(),
+            lugar_intercambio=lugar,
+            fecha_intercambio_pactada=fecha,
         )
-        return Response({"id_intercambio": obj.id_intercambio}, status=201)
+        SolicitudOferta.objects.create(id_solicitud=si, id_libro_ofrecido_id=libro_ofr_id)
+        si.id_libro_ofrecido_aceptado_id = libro_ofr_id
+        si.save(update_fields=["id_libro_ofrecido_aceptado"])
 
-    except IntegrityError as e:
-        # FK o restricciones de BD
-        return Response({"detail": "Restricción de integridad: revisa que los IDs existan y sean válidos."}, status=400)
-    except Exception as e:
-        # Si tienes triggers que devuelven mensajes personalizados, exponlos:
-        return Response({"detail": str(e)}, status=400)
+        ix, _ = Intercambio.objects.get_or_create(
+            id_solicitud=si,
+            defaults={
+                "id_libro_ofrecido_aceptado_id": libro_ofr_id,
+                "estado_intercambio": "Aceptado",
+                "lugar_intercambio": lugar,
+                "fecha_intercambio_pactada": fecha,
+            },
+        )
+
+        # conversación
+        conv, _ = Conversacion.objects.get_or_create(
+            id_intercambio_id=ix.id_intercambio,
+            defaults={"creado_en": timezone.now(), "actualizado_en": timezone.now(), "ultimo_id_mensaje": 0},
+        )
+        ConversacionParticipante.objects.get_or_create(
+            id_conversacion_id=conv.id_conversacion, id_usuario_id=uid_sol,
+            defaults={"rol": "solicitante", "ultimo_visto_id_mensaje": 0, "silenciado": False, "archivado": False},
+        )
+        ConversacionParticipante.objects.get_or_create(
+            id_conversacion_id=conv.id_conversacion, id_usuario_id=uid_ofr,
+            defaults={"rol": "ofreciente", "ultimo_visto_id_mensaje": 0, "silenciado": False, "archivado": False},
+        )
+
+    return Response({"id_intercambio": ix.id_intercambio}, status=201)
 
 @api_view(["PATCH"])
 @permission_classes([AllowAny])  # cambia a IsAuthenticated en prod
@@ -1533,6 +1530,12 @@ def crear_solicitud_intercambio(request):
         estado_intercambio__iexact=INTERCAMBIO_ESTADO["ACEPTADO"],
     ).exists():
         return Response({"detail": "Ese libro ya tiene un intercambio aceptado en curso."}, status=409)
+    
+    if Intercambio.objects.filter(
+        Q(id_solicitud__id_libro_deseado_id=libro_deseado_id) | Q(id_libro_ofrecido_aceptado_id=libro_deseado_id),
+        estado_intercambio__in=['Pendiente','Aceptado'],
+    ).exists():
+        return Response({"detail": "Ese libro está en negociación. No se puede proponer por ahora."}, status=409)
 
     if Intercambio.objects.filter(
         id_libro_ofrecido_aceptado_id__in=libros_ofrecidos_ids,
@@ -1766,10 +1769,10 @@ def rechazar_solicitud(request, solicitud_id: int):
 def listar_solicitudes_recibidas(request):
     user_id = request.query_params.get("user_id")
     qs = (SolicitudIntercambio.objects
-          .filter(id_usuario_receptor_id=user_id)
-          .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
-          .prefetch_related('ofertas__id_libro_ofrecido', inter_prefetch)
-          .order_by('-creada_en'))
+        .filter(id_usuario_receptor_id=user_id)
+        .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
+        .prefetch_related('ofertas__id_libro_ofrecido', _inter_prefetch())
+        .order_by('-creada_en'))
     return Response(SolicitudIntercambioSerializer(qs, many=True).data)
 
 @api_view(["GET"])
@@ -1777,10 +1780,10 @@ def listar_solicitudes_recibidas(request):
 def listar_solicitudes_enviadas(request):
     user_id = request.query_params.get("user_id")
     qs = (SolicitudIntercambio.objects
-          .filter(id_usuario_solicitante_id=user_id)
-          .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
-          .prefetch_related('ofertas__id_libro_ofrecido', inter_prefetch)
-          .order_by('-creada_en'))
+            .filter(id_usuario_solicitante_id=user_id)
+            .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
+            .prefetch_related('ofertas__id_libro_ofrecido', _inter_prefetch())
+            .order_by('-creada_en'))
     return Response(SolicitudIntercambioSerializer(qs, many=True).data)
 
 
@@ -1796,72 +1799,180 @@ def _roles(intercambio: Intercambio):
 @api_view(["PATCH"])
 @permission_classes([AllowAny])
 def proponer_encuentro(request, intercambio_id: int):
-    it = (Intercambio.objects
-          .select_related("id_solicitud")
-          .filter(pk=intercambio_id).first())
-    if not it:
-        return Response({"detail": "Intercambio no encontrado"}, status=404)
+    with transaction.atomic():
+        it = (Intercambio.objects
+              .select_for_update()
+              .select_related("id_solicitud")
+              .filter(pk=intercambio_id).first())
+        if not it:
+            return Response({"detail": "Intercambio no encontrado"}, status=404)
 
-    user_id = int(request.data.get("user_id") or 0)
-    solicitante_id, ofreciente_id = _roles(it)
+        user_id = int(request.data.get("user_id") or 0)
+        solicitante_id, ofreciente_id = _roles(it)
+        if user_id != ofreciente_id:
+            return Response({"detail": "Solo el ofreciente puede proponer lugar/fecha."}, status=403)
 
-    if user_id != ofreciente_id:
-        return Response({"detail": "Solo el ofreciente puede proponer lugar/fecha."}, status=403)
+        if (it.estado_intercambio or "").lower() != INTERCAMBIO_ESTADO["ACEPTADO"].lower():
+            return Response({"detail": "El intercambio debe estar en Aceptado."}, status=400)
 
-    if (it.estado_intercambio or "").lower() != "aceptado":
-        return Response({"detail": "El intercambio debe estar en Aceptado."}, status=400)
+        # === Compatibilidad: aceptar payload legacy {lugar, fecha} ===
+        metodo = (request.data.get("metodo") or "").upper().strip()
+        direccion = (request.data.get("direccion") or request.data.get("lugar") or "").strip()
+        fecha_raw = (request.data.get("fecha") or request.data.get("fecha_intercambio") or "").strip()
 
-    # 🔒 Reglas: no se aceptan campos vacíos
-    lugar = (request.data.get("lugar") or "").strip()
-    fecha_raw = (request.data.get("fecha") or "").strip()
-    if not lugar or not fecha_raw:
-        return Response({"detail": "Debes indicar lugar y fecha/hora."}, status=400)
+        # Parse fecha (obligatoria)
+        dt = parse_datetime(fecha_raw) if fecha_raw else None
+        if not dt:
+            return Response({"detail": "Fecha/hora inválida. Usa ISO 8601."}, status=400)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        if dt <= timezone.now() + timezone.timedelta(minutes=15):
+            return Response({"detail": "La hora debe ser ≥ 15 min en el futuro."}, status=400)
 
-    # ISO 8601 -> datetime timezone-aware
-    from django.utils.dateparse import parse_datetime
-    dt = parse_datetime(fecha_raw)
-    if not dt:
-        return Response({"detail": "Fecha/hora inválida. Usa ISO 8601 (datetime-local)."}, status=400)
-    if timezone.is_naive(dt):
-        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        # Si no vino 'metodo', asumimos MANUAL (legacy)
+        if not metodo:
+            metodo = "MANUAL"
 
-    it.lugar_intercambio = lugar
-    it.fecha_intercambio_pactada = dt
-    it.save(update_fields=["lugar_intercambio", "fecha_intercambio_pactada"])
-    return Response({"ok": True, "lugar": it.lugar_intercambio, "fecha": it.fecha_intercambio_pactada})
+        punto = None
+        lat = lon = None
+
+        if metodo == "PREDEF":
+            punto_id = request.data.get("punto_id")
+            try:
+                punto = PuntoEncuentro.objects.get(pk=int(punto_id), habilitado=True)
+            except Exception:
+                return Response({"detail": "punto_id inválido."}, status=400)
+            direccion = direccion or (punto.direccion or punto.nombre)
+            lat = punto.latitud
+            lon = punto.longitud
+
+        elif metodo == "MANUAL":
+            # Ahora lat/lon son OPCIONALES (se guardan si vienen)
+            lat_raw = request.data.get("lat")
+            lon_raw = request.data.get("lon")
+            try:
+                lat = float(lat_raw) if lat_raw not in (None, "") else None
+                lon = float(lon_raw) if lon_raw not in (None, "") else None
+            except (TypeError, ValueError):
+                return Response({"detail": "lat/lon inválidos."}, status=400)
+            if not direccion:
+                return Response({"detail": "Falta direccion."}, status=400)
+        else:
+            return Response({"detail": "metodo inválido (MANUAL|PREDEF)."}, status=400)
+
+        # Solo 1 pendiente
+        if PropuestaEncuentro.objects.filter(id_intercambio=it, estado="ACEPTADA").exists():
+            return Response({"detail": "Ya existe una propuesta aceptada."}, status=409)
+        if PropuestaEncuentro.objects.filter(id_intercambio=it, estado="PENDIENTE").exists():
+            return Response({"detail": "Ya existe una propuesta pendiente."}, status=409)
+
+        prop = PropuestaEncuentro.objects.create(
+            id_intercambio=it,
+            propuesta_por_id=user_id,
+            metodo=metodo,
+            id_punto=punto,
+            latitud=lat,
+            longitud=lon,
+            direccion=direccion,
+            fecha_hora=dt,
+            notas=(request.data.get("notas") or "").strip()[:240],
+            estado="PENDIENTE",
+            activa=True,
+        )
+
+          # Notificar en el chat
+        try:
+            from .models import Conversacion, ConversacionMensaje
+            conv = Conversacion.objects.filter(id_intercambio_id=it.id_intercambio).first()
+            if conv:
+                cuerpo = f"🗺️ Propuesta de encuentro: {direccion} — {dt.strftime('%Y-%m-%d %H:%M')}"
+                m = ConversacionMensaje.objects.create(
+                    id_conversacion=conv,
+                    id_usuario_emisor_id=user_id,
+                    cuerpo=cuerpo,
+                    enviado_en=timezone.now()
+                )
+                Conversacion.objects.filter(pk=conv.id_conversacion).update(
+                    actualizado_en=timezone.now(),
+                    ultimo_id_mensaje=m.id_mensaje
+                )
+        except Exception:
+            pass  # no bloquees el flujo si falla el aviso
+
+        return Response({
+            "ok": True,
+            "propuesta_id": prop.id,
+            "metodo": prop.metodo,
+            "lugar": prop.direccion,
+            "fecha": prop.fecha_hora,
+            "estado": prop.estado,
+        }, status=201)
 
 
 @api_view(["PATCH"])
 @permission_classes([AllowAny])
 def confirmar_encuentro(request, intercambio_id: int):
-    it = (Intercambio.objects
-          .select_related("id_solicitud")
-          .filter(pk=intercambio_id).first())
-    if not it:
-        return Response({"detail": "Intercambio no encontrado"}, status=404)
+    with transaction.atomic():
+        it = (Intercambio.objects
+              .select_for_update()
+              .select_related("id_solicitud")
+              .filter(pk=intercambio_id).first())
+        if not it:
+            return Response({"detail": "Intercambio no encontrado"}, status=404)
 
-    user_id = int(request.data.get("user_id") or 0)
-    solicitante_id, ofreciente_id = _roles(it)
+        user_id = int(request.data.get("user_id") or 0)
+        solicitante_id, ofreciente_id = _roles(it)
+        if user_id != solicitante_id:
+            return Response({"detail": "Solo el solicitante puede confirmar."}, status=403)
 
-    if user_id != solicitante_id:
-        return Response({"detail": "Solo el solicitante puede confirmar."}, status=403)
+        if (it.estado_intercambio or "").lower() != INTERCAMBIO_ESTADO["ACEPTADO"].lower():
+            return Response({"detail": "El intercambio debe estar en Aceptado."}, status=400)
 
-    if (it.estado_intercambio or "").lower() != "aceptado":
-        return Response({"detail": "El intercambio debe estar en Aceptado."}, status=400)
+        ser = ConfirmarEncuentroSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        confirmar = bool(ser.validated_data["confirmar"])
 
-    ser = ConfirmarEncuentroSerializer(data=request.data)
-    ser.is_valid(raise_exception=True)
+        # Buscar la única PENDIENTE
+        p = (PropuestaEncuentro.objects
+             .select_for_update()
+             .filter(id_intercambio=it, estado="PENDIENTE")
+             .order_by('-id').first())
+        if not p:
+            return Response({"detail": "No hay propuesta pendiente."}, status=404)
 
-    if not it.lugar_intercambio or not it.fecha_intercambio_pactada:
-        return Response({"detail": "Aún no hay propuesta de lugar/fecha."}, status=400)
+        if confirmar:
+            p.estado = "ACEPTADA"
+            p.decidida_por_id = user_id
+            p.decidida_en = timezone.now()
+            p.activa = False
+            p.save(update_fields=["estado","decidida_por","decidida_en","activa"])
 
-    if ser.validated_data["confirmar"]:
-        return Response({"ok": True, "coordinado": True})
-    else:
-        it.lugar_intercambio = "A coordinar"
-        it.fecha_intercambio_pactada = None
-        it.save(update_fields=["lugar_intercambio", "fecha_intercambio_pactada"])
-        return Response({"ok": True, "coordinado": False})
+            # ⬇️ NUEVO: reflejar reunión en Intercambio + Solicitud
+            it.lugar_intercambio = p.direccion
+            it.fecha_intercambio_pactada = p.fecha_hora
+            it.save(update_fields=["lugar_intercambio", "fecha_intercambio_pactada"])
+
+            si = it.id_solicitud
+            si.lugar_intercambio = p.direccion
+            si.fecha_intercambio_pactada = p.fecha_hora
+            si.save(update_fields=["lugar_intercambio", "fecha_intercambio_pactada"])
+
+            return Response(
+                {"ok": True, "coordinado": True, "lugar": p.direccion, "fecha": p.fecha_hora},
+                status=200
+    )
+        else:
+            # Rechazar -> permite nuevas propuestas
+            p.estado = "RECHAZADA"
+            p.decidida_por_id = user_id
+            p.decidida_en = timezone.now()
+            p.activa = False
+            # opcional: anexar motivo si mandas "notas"
+            notas = (request.data.get("notas") or "").strip()
+            if notas:
+                p.notas = (p.notas or "") + f"\n[RECHAZO] {notas}"[:240]
+            p.save(update_fields=["estado","decidida_por","decidida_en","activa","notas"])
+            return Response({"ok": True, "coordinado": False}, status=200)
 
 
 @api_view(["POST"])
@@ -1875,28 +1986,27 @@ def generar_codigo(request, intercambio_id: int):
 
     user_id = int(request.data.get("user_id") or 0)
     solicitante_id, ofreciente_id = _roles(it)
-
     if user_id != ofreciente_id:
         return Response({"detail": "Solo el ofreciente puede generar el código."}, status=403)
 
-    if (it.estado_intercambio or "").lower() != "aceptado":
+    if (it.estado_intercambio or "").lower() != INTERCAMBIO_ESTADO["ACEPTADO"].lower():
         return Response({"detail": "El intercambio debe estar en Aceptado."}, status=400)
+
+    # 🔒 Nuevo: exigir propuesta aceptada
+    if not PropuestaEncuentro.objects.filter(id_intercambio=it, estado="ACEPTADA").exists():
+        return Response({"detail": "Debes aceptar una propuesta de encuentro antes de generar el código."}, status=409)
 
     ser = GenerarCodigoSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
-
     raw = (ser.validated_data.get("codigo") or "").strip()
     if not raw:
         raw = get_random_string(6, allowed_chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
 
-    # En tu BD el código se guarda en claro (columna 'codigo') + expiración y usado_en
     expira = timezone.now() + timezone.timedelta(days=30)
     obj, _ = IntercambioCodigo.objects.update_or_create(
         id_intercambio=it,
         defaults={"codigo": raw, "expira_en": expira, "usado_en": None}
     )
-
-    # Para pruebas lo devolvemos; en prod muéstralo solo al ofreciente (UI).
     return Response({"ok": True, "codigo": raw, "expira_en": expira})
 
 
@@ -1964,6 +2074,14 @@ def completar_intercambio(request, intercambio_id: int):
         ctrl.usado_en = None
         ctrl.save(update_fields=["usado_en"])
         return Response({"detail": str(e)}, status=400)
+
+
+
+
+
+
+
+
 
 
 @api_view(["POST"])
@@ -2120,3 +2238,51 @@ def favoritos_toggle(request, libro_id: int):
         return Response({"favorited": True}, status=201)
     except Exception as e:
         return Response({"detail": str(e)}, status=400)
+    
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def puntos_encuentro(request):
+    qs = PuntoEncuentro.objects.all()
+    tipo = (request.query_params.get("tipo") or "").upper().strip()
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+
+    hab = request.query_params.get("habilitado")
+    if hab is None:
+        qs = qs.filter(habilitado=True)  # default
+    else:
+        val = str(hab).lower() in ("1","true","t","yes","y","on")
+        qs = qs.filter(habilitado=val)
+
+    return Response(PuntoEncuentroSerializer(qs, many=True).data)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def propuesta_actual(request, intercambio_id: int):
+    """
+    Devuelve la propuesta ACTIVA (PENDIENTE) si existe.
+    Si no hay activa, devuelve la última propuesta (ACEPTADA o RECHAZADA) para mostrar contexto.
+    """
+    from .models import PropuestaEncuentro
+
+    q = PropuestaEncuentro.objects.filter(id_intercambio_id=intercambio_id)
+
+    p = q.filter(activa=True).order_by('-id').first()
+    if not p:
+        p = q.order_by('-id').first()
+
+    if not p:
+        return Response({})
+
+    return Response({
+        "id": p.pk,
+        "estado": p.estado,                # PENDIENTE / ACEPTADA / RECHAZADA
+        "metodo": p.metodo,                # MANUAL / PREDEF
+        "direccion": p.direccion,
+        "lat": p.latitud,
+        "lon": p.longitud,
+        "fecha": p.fecha_hora,
+        "propuesta_por_id": p.propuesta_por_id,
+        "activa": p.activa,
+    })
