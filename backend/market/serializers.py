@@ -104,6 +104,31 @@ class ImagenLibroSerializer(serializers.ModelSerializer):
         fields = [
             'id_imagen','url_imagen','descripcion','id_libro','orden','is_portada','created_at'
         ]
+    def get_url_abs(self, obj):
+        request = self.context.get('request')
+
+        # 1) intenta usar .url si fuera ImageField
+        rel = ''
+        try:
+            rel = obj.url_imagen.url
+        except Exception:
+            rel = str(getattr(obj, 'url_imagen', '') or '').replace('\\', '/')
+
+        # 2) normaliza prefijos
+        if rel and not (rel.startswith('http://') or rel.startswith('https://')):
+            if rel.startswith('/media/'):
+                pass  # ok
+            elif rel.startswith('media/'):
+                rel = '/' + rel
+            else:
+                rel = f"{settings.MEDIA_URL.rstrip('/')}/{rel}".replace('//', '/')
+
+        # 3) si tenemos request, vuelve absoluto
+        if request and rel and rel.startswith('/'):
+            return request.build_absolute_uri(rel)
+        return rel or None
+
+
 
 
 class LibroSimpleSerializer(serializers.ModelSerializer):

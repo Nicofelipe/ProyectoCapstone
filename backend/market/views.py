@@ -52,10 +52,37 @@ def catalog_generos(request):
 # Helpers
 # =========================
 def media_abs(request, rel: str | None = None) -> str:
-    rel = (rel or "books/librodefecto.png").lstrip("/")
-    media_prefix = (settings.MEDIA_URL or "/media/").strip("/")
-    path = f"/{media_prefix}/{rel}".replace("//", "/")
-    return request.build_absolute_uri(path)
+    """
+    Construye una URL ABSOLUTA a partir de una ruta relativa en MEDIA.
+    Soporta MEDIA_URL relativo ('/media/') y absoluto ('https://host/media/').
+    Soporta rel ya absoluto.
+    """
+    rel = (rel or "books/librodefecto.png").strip()
+
+    # 0) Si ya es absoluta, devuélvela tal cual
+    if rel.startswith("http://") or rel.startswith("https://"):
+        return rel
+
+    # 1) Normaliza la ruta relativa: sin leading slash y sin 'media/' duplicado
+    rel = rel.lstrip("/").replace("\\", "/")
+    if rel.startswith("media/"):
+        rel = rel[len("media/"):]
+
+    # 2) Lee MEDIA_URL
+    mu = str(getattr(settings, "MEDIA_URL", "/media/")).strip()
+
+    # 3) Si MEDIA_URL es absoluta, une directo
+    if mu.startswith("http://") or mu.startswith("https://"):
+        return f"{mu.rstrip('/')}/{rel}"
+
+    # 4) Si MEDIA_URL es relativa, construye path y vuelve absoluto con request
+    media_prefix = mu.strip("/") or "media"
+    url_path = f"/{media_prefix}/{rel}".replace("//", "/")
+    try:
+        return request.build_absolute_uri(url_path)
+    except Exception:
+        # Fallback (muy raro en DRF): devuelve el path relativo
+        return url_path
 
 def _save_book_image(file_obj) -> str:
     try:
@@ -2257,6 +2284,11 @@ def puntos_encuentro(request):
 
     return Response(PuntoEncuentroSerializer(qs, many=True).data)
 
+
+
+
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def propuesta_actual(request, intercambio_id: int):
@@ -2286,3 +2318,5 @@ def propuesta_actual(request, intercambio_id: int):
         "propuesta_por_id": p.propuesta_por_id,
         "activa": p.activa,
     })
+
+
