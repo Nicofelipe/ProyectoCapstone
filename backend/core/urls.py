@@ -1,3 +1,4 @@
+
 # core/urls.py (o donde agrupes tus endpoints)
 from django.urls import path
 from .views_auth import login_issue_tokens, logout_all_devices

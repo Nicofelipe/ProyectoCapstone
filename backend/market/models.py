@@ -1,9 +1,10 @@
-#market models.py
+# market models.py
 
 from django.db import models
 from rest_framework import serializers
-from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO
 
 
 class Genero(models.Model):
@@ -16,6 +17,7 @@ class Genero(models.Model):
 
     def __str__(self):
         return self.nombre
+
 
 # Referencias entre apps por string:
 # 'core.Usuario', 'market.Libro'
@@ -32,6 +34,15 @@ class Libro(models.Model):
     tipo_tapa = models.CharField(max_length=20)            # Enum en BD; aquí CharField
     disponible = models.BooleanField(default=True)
     fecha_subida = models.DateTimeField(db_column='fecha_subida', auto_now_add=False)
+
+    # Motivo de no disponibilidad:
+    # OWNER: desactivado por dueño (editable/reactivable)
+    # BAJA:  moderación/admin (no editable/ni eliminable)
+    # COMPLETADO: por intercambio completado (histórico; no editable/ni eliminable)
+    status_reason = models.CharField(
+        max_length=15, null=True, blank=True, db_column='status_reason',
+        help_text=_("OWNER | BAJA | COMPLETADO (o NULL si disponible normalmente)")
+    )
 
     id_usuario = models.ForeignKey(
         'core.Usuario', db_column='id_usuario',
@@ -81,15 +92,12 @@ class Calificacion(models.Model):
     def __str__(self):
         return f"Calificación {self.puntuacion} a {self.id_usuario_calificado_id}"
 
+
 Clasificacion = Calificacion  # alias compat
 
 
 class Favorito(models.Model):
     id_favorito = models.AutoField(primary_key=True)
-
-    # Accesos:
-    # - usuario.favoritos.all()
-    # - libro.marcado_como_favorito_por.all()
     id_usuario = models.ForeignKey(
         'core.Usuario',
         db_column='id_usuario',
@@ -107,8 +115,8 @@ class Favorito(models.Model):
         db_table = 'favorito'
         managed = False
         constraints = [
-            models.UniqueConstraint(fields=['id_usuario','id_libro'], name='uniq_favorito_usuario_libro'),
-    ]
+            models.UniqueConstraint(fields=['id_usuario', 'id_libro'], name='uniq_favorito_usuario_libro'),
+        ]
 
     def __str__(self):
         return f"Fav #{self.id_favorito} — Usuario {self.id_usuario_id} / Libro {self.id_libro_id}"
@@ -120,7 +128,6 @@ class ImagenLibro(models.Model):
     url_imagen = models.CharField(max_length=255, null=True, blank=True)
     descripcion = models.CharField(max_length=255, null=True, blank=True)
 
-    # Acceso: libro.imagenes.all()
     id_libro = models.ForeignKey(
         'market.Libro',
         db_column='id_libro',
@@ -128,7 +135,7 @@ class ImagenLibro(models.Model):
         related_name='imagenes'
     )
 
-    # IMPORTANTE: refleja que la columna en BD no acepta NULL
+    # Importante: refleja que la columna en BD no acepta NULL
     orden = models.PositiveIntegerField(default=0, db_column='orden')
     is_portada = models.BooleanField(default=False, db_column='is_portada')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
@@ -139,9 +146,6 @@ class ImagenLibro(models.Model):
 
     def __str__(self):
         return f"Imagen #{self.id_imagen} de Libro {self.id_libro_id}"
-
-
-
 
 
 class Mensaje(models.Model):
@@ -164,7 +168,6 @@ class Mensaje(models.Model):
     class Meta:
         db_table = 'mensaje'
         managed = False
-
 
 
 class LibroSolicitudesVistas(models.Model):
@@ -194,7 +197,7 @@ class Conversacion(models.Model):
     )
     creado_en = models.DateTimeField(default=timezone.now)
     actualizado_en = models.DateTimeField(default=timezone.now)
-    ultimo_id_mensaje = models.IntegerField(default=0, db_column='ultimo_id_mensaje')  # <-- default 0 y sin null=True
+    ultimo_id_mensaje = models.IntegerField(default=0, db_column='ultimo_id_mensaje')
 
     class Meta:
         db_table = 'conversacion'
@@ -222,7 +225,7 @@ class ConversacionParticipante(models.Model):
         db_column='id_usuario',
         on_delete=models.CASCADE,
         related_name='conversaciones',
-        null=False,           # ← permitir nulos temporalmente
+        null=False,
         blank=False
     )
     rol = models.CharField(max_length=20, null=True, blank=True, choices=ROL_CHOICES)
@@ -277,9 +280,7 @@ class SolicitudIntercambio(models.Model):
     estado = models.CharField(
         max_length=10,
         default=SOLICITUD_ESTADO["PENDIENTE"],
-        choices=[
-            (v, v) for v in SOLICITUD_ESTADO.values()
-        ],
+        choices=[(v, v) for v in SOLICITUD_ESTADO.values()],
     )
     lugar_intercambio = models.CharField(max_length=255, null=True, blank=True)
     fecha_intercambio_pactada = models.DateTimeField(null=True, blank=True)
@@ -290,7 +291,6 @@ class SolicitudIntercambio(models.Model):
     class Meta:
         db_table = 'solicitud_intercambio'
         managed = False
-
 
 
 class SolicitudOferta(models.Model):
@@ -304,6 +304,7 @@ class SolicitudOferta(models.Model):
         db_table = 'solicitud_oferta'
         managed = False
 
+
 class Intercambio(models.Model):
     id_intercambio = models.AutoField(primary_key=True)
     id_solicitud = models.ForeignKey('market.SolicitudIntercambio', db_column='id_solicitud',
@@ -315,15 +316,14 @@ class Intercambio(models.Model):
     estado_intercambio = models.CharField(
         max_length=12,
         default=INTERCAMBIO_ESTADO["PENDIENTE"],
-        choices=[
-            (v, v) for v in INTERCAMBIO_ESTADO.values()
-        ],
+        choices=[(v, v) for v in INTERCAMBIO_ESTADO.values()],
     )
     fecha_completado = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'intercambio'
         managed = False
+
 
 class IntercambioCodigo(models.Model):
     # PK es id_intercambio, por eso usamos OneToOneField con primary_key=True
@@ -355,7 +355,6 @@ class PuntoEncuentro(models.Model):
 
     def __str__(self):
         return self.nombre
-    
 
 
 class PropuestaEncuentro(models.Model):
@@ -400,8 +399,3 @@ class PropuestaEncuentro(models.Model):
 
     def __str__(self):
         return f"Propuesta #{self.pk} / Intercambio {self.id_intercambio_id} / {self.estado}"
-
-
-
-
-

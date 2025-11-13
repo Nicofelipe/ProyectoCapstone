@@ -55,8 +55,8 @@ urlpatterns = [
     path('chat/conversacion/<int:conversacion_id>/visto/',    marcar_visto), # 👈 recomendable agregar
 
     #COMPLETAR INTERCAMBIO
-    path('intercambios/<int:intercambio_id>/proponer/', proponer_encuentro),
-    path('intercambios/<int:intercambio_id>/confirmar/', confirmar_encuentro),
+
+
     path('intercambios/<int:intercambio_id>/codigo/', generar_codigo),
     path('intercambios/<int:intercambio_id>/completar/', completar_intercambio),
     path('solicitudes/<int:solicitud_id>/cancelar/', cancelar_solicitud),
@@ -67,7 +67,9 @@ urlpatterns = [
 
 
     path('puntos-encuentro/', views.puntos_encuentro),
-    path("intercambios/<int:intercambio_id>/propuesta-actual/", propuesta_actual),
+    path("intercambios/<int:intercambio_id>/proponer/", proponer_encuentro, name="proponer-encuentro"),
+    path("intercambios/<int:intercambio_id>/confirmar/", confirmar_encuentro, name="confirmar-encuentro"),
+    path("intercambios/<int:intercambio_id>/propuesta/", propuesta_actual, name="propuesta-actual"),
 
 
 # ===== Favoritos =====
@@ -82,11 +84,10 @@ urlpatterns = [
     path("libros/<int:libro_id>/favorito/check/", views.favoritos_check),
     path("libros/<int:libro_id>/favorito/toggle/", views.favoritos_toggle),
 
+    path('libros/<int:libro_id>/owner-toggle/', views.owner_toggle, name='owner-toggle'),
+
     path('libros/by-title/', books_by_title),
 
 ]
 
 urlpatterns += router.urls
-
-
-
