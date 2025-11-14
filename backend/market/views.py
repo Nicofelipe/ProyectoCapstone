@@ -51,6 +51,20 @@ STATUS_COMPLETADO = "COMPLETADO"
 # Helpers
 # =========================
 
+
+portada_sq = (ImagenLibro.objects
+    .filter(id_libro=OuterRef('pk'), is_portada=True)
+    .order_by('id_imagen')
+    .values_list('url_imagen', flat=True)[:1])
+
+first_by_order_sq = (ImagenLibro.objects
+    .filter(id_libro=OuterRef('pk'))
+    .order_by('orden', 'id_imagen')
+    .values_list('url_imagen', flat=True)[:1])
+
+
+
+
 def media_abs(request, rel: str | None = None) -> str:
     """
     Construye una URL ABSOLUTA a partir de una ruta relativa en MEDIA.
@@ -146,7 +160,9 @@ class LibroViewSet(viewsets.ReadOnlyModelViewSet):
                     When(disponible=True, en_negociacion=False, then=Value(True)),
                     default=Value(False),
                     output_field=BooleanField(),
-                )
+                ),
+                # 👇 clave: traer primera imagen ya resuelta
+                first_image=Coalesce(Subquery(portada_sq), Subquery(first_by_order_sq), Value(''))
             )
             .all()
             .order_by('-id_libro')
@@ -228,6 +244,48 @@ class LibroViewSet(viewsets.ReadOnlyModelViewSet):
             })
 
         return Response(out)
+
+
+
+
+# 👇 --- AÑADE ESTA NUEVA VISTA --- 👇
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def libros_por_genero(request):
+    """
+    Devuelve los últimos 20 libros de un género específico que 
+    estén disponibles y no en negociación.
+    """
+    try:
+        genero_id = int(request.query_params.get("id_genero"))
+    except (TypeError, ValueError):
+        return Response({"detail": "Falta id_genero válido."}, status=400)
+
+    # Reutilizamos la misma lógica de 'latest' para 'en_negociacion'
+    # para asegurar que solo mostramos libros "public_disponible"
+    qs = (
+        Libro.objects
+        .select_related('id_usuario', 'id_genero')
+        .annotate(_ix=intercambio_activo_ix, _sal=pendiente_saliente_ix)
+        .annotate(
+            en_negociacion=Case(
+                When(Q(_ix=True) | Q(_sal=True), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        )
+        .filter(
+            id_genero_id=genero_id,
+            disponible=True,
+            en_negociacion=False  # ¡Clave! Solo disponibles de verdad
+        )
+        .order_by('-fecha_subida', '-id_libro')[:20] # Limitamos a 20
+    )
+    
+    # Pasamos el 'request' al contexto para que LibroSerializer construya las URLs
+    data = LibroSerializer(qs, many=True, context={'request': request}).data
+    return Response(data)
 
 
 @api_view(["GET"])
@@ -1375,6 +1433,9 @@ def lista_conversaciones(request, user_id: int):
         })
     return Response(data)
 
+def _roles(itc: Intercambio):
+        si = itc.id_solicitud
+        return si.id_usuario_solicitante_id, si.id_usuario_receptor_id
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -1396,10 +1457,6 @@ def calificar_intercambio(request, intercambio_id: int):
 
     raw_com = request.data.get("comentario")
     comentario = (raw_com if isinstance(raw_com, str) else "").strip()[:500]
-
-    def _roles(itc: Intercambio):
-        si = itc.id_solicitud
-        return si.id_usuario_solicitante_id, si.id_usuario_receptor_id
 
     solicitante_id, ofreciente_id = _roles(it)
     if user_id not in (solicitante_id, ofreciente_id):
@@ -1569,6 +1626,7 @@ def crear_solicitud_intercambio(request):
             status=400
         )
 
+
     # === Bloqueos adicionales ===
 
     # a) Tus libros ofrecidos NO pueden estar ya ofrecidos por ti en otra PENDIENTE (pendiente saliente previa)
@@ -1638,6 +1696,50 @@ def crear_solicitud_intercambio(request):
     serializer = SolicitudIntercambioSerializer(solicitud)
     return Response(serializer.data, status=201)
 
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def catalogo_completo(request):
+    """
+    Devuelve TODOS los libros que están disponibles y no en negociación,
+    incluyendo la calificación de su dueño.
+    """
+    # Subqueries para la calificación del dueño (copiadas de 'books_by_title')
+    avg_sq = (Calificacion.objects
+              .filter(id_usuario_calificado=OuterRef("id_usuario_id"))
+              .values("id_usuario_calificado")
+              .annotate(a=Avg("puntuacion"))
+              .values("a")[:1])
+    cnt_sq = (Calificacion.objects
+              .filter(id_usuario_calificado=OuterRef("id_usuario_id"))
+              .values("id_usuario_calificado")
+              .annotate(c=Count("pk"))
+              .values("c")[:1])
+
+    qs = (
+        Libro.objects
+        .select_related('id_usuario', 'id_genero')
+        .annotate(_ix=intercambio_activo_ix, _sal=pendiente_saliente_ix)
+        .annotate(
+            en_negociacion=Case(
+                When(Q(_ix=True) | Q(_sal=True), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        )
+        # Añadimos las calificaciones
+        .annotate(owner_rating_avg=Coalesce(Subquery(avg_sq), Value(None)))
+        .annotate(owner_rating_count=Coalesce(Subquery(cnt_sq), Value(0)))
+        .filter(
+            disponible=True,
+            en_negociacion=False # ¡Clave! Solo disponibles de verdad
+        )
+        .order_by('-fecha_subida', '-id_libro') # Ordenados por más nuevo
+    )
+    
+    # Usamos el mismo LibroSerializer, que ya sabe manejar el 'request'
+    data = LibroSerializer(qs, many=True, context={'request': request}).data
+    return Response(data)
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -1815,35 +1917,126 @@ def rechazar_solicitud(request, solicitud_id: int):
     }, status=200)
 
 
+# En tu views.py
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def listar_solicitudes_recibidas(request):
     user_id = request.query_params.get("user_id")
+    if not user_id:
+         return Response({"detail": "Falta user_id"}, status=400)
+
+    # --- INICIO DE OPTIMIZACIÓN ---
+
+    # 1. Prefetch para Intercambio Y sus datos anidados (Conversacion y Propuesta)
+    prefetch_intercambio = Prefetch(
+        'intercambio',
+        queryset=Intercambio.objects.order_by('-id_intercambio').prefetch_related(
+            # Prefetch la conversación de cada intercambio
+            Prefetch('conversaciones', queryset=Conversacion.objects.order_by('id_conversacion')),
+            
+            # Prefetch SOLO la propuesta ACEPTADA de cada intercambio
+            # 👇 --- ¡AQUÍ ESTÁ LA CORRECCIÓN! --- 👇
+            Prefetch('propuestas', 
+                     queryset=PropuestaEncuentro.objects.filter(estado="ACEPTADA").order_by('-id'),
+                     to_attr='propuesta_aceptada') # Guardar en un atributo fácil de usar
+        )
+    )
+
+    # 2. Prefetch para las IMÁGENES de todos los libros involucrados
+    prefetch_ofertas_imgs = Prefetch(
+        'ofertas__id_libro_ofrecido__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+    prefetch_deseado_imgs = Prefetch(
+        'id_libro_deseado__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+    prefetch_aceptado_imgs = Prefetch(
+        'id_libro_ofrecido_aceptado__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+
     qs = (SolicitudIntercambio.objects
-          .filter(id_usuario_receptor_id=user_id)
-          .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
-          .prefetch_related('ofertas__id_libro_ofrecido',
-                            Prefetch('intercambio', queryset=Intercambio.objects.order_by('-id_intercambio')))
+          .filter(
+              id_usuario_receptor_id=user_id,
+              estado__in=[SOLICITUD_ESTADO["PENDIENTE"], SOLICITUD_ESTADO["ACEPTADA"]]
+          )
+          .select_related(
+              'id_usuario_solicitante', 'id_usuario_receptor',
+              'id_libro_deseado', 'id_libro_ofrecido_aceptado'
+          )
+          .prefetch_related(
+              'ofertas__id_libro_ofrecido', 
+              prefetch_intercambio,         
+              prefetch_ofertas_imgs,        
+              prefetch_deseado_imgs,
+              prefetch_aceptado_imgs
+          )
           .order_by('-creada_en'))
-    return Response(SolicitudIntercambioSerializer(qs, many=True).data)
+    
+    serializer = SolicitudIntercambioSerializer(qs, many=True, context={'request': request})
+    return Response(serializer.data)
+    # --- FIN DE OPTIMIZACIÓN ---
+
+
+
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def listar_solicitudes_enviadas(request):
     user_id = request.query_params.get("user_id")
+    if not user_id:
+         return Response({"detail": "Falta user_id"}, status=400)
+
+    # --- INICIO DE OPTIMIZACIÓN (Mismos prefetches que 'recibidas') ---
+    prefetch_intercambio = Prefetch(
+        'intercambio',
+        queryset=Intercambio.objects.order_by('-id_intercambio').prefetch_related(
+            Prefetch('conversaciones', queryset=Conversacion.objects.order_by('id_conversacion')),
+            
+            # 👇 --- ¡LA CORRECCIÓN FINAL ESTÁ AQUÍ! --- 👇
+            # No es 'intercambio__propuestas', solo 'propuestas'
+            Prefetch('propuestas', 
+                     queryset=PropuestaEncuentro.objects.filter(estado="ACEPTADA").order_by('-id'),
+                     to_attr='propuesta_aceptada')
+        )
+    )
+    prefetch_ofertas_imgs = Prefetch(
+        'ofertas__id_libro_ofrecido__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+    prefetch_deseado_imgs = Prefetch(
+        'id_libro_deseado__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+    prefetch_aceptado_imgs = Prefetch(
+        'id_libro_ofrecido_aceptado__imagenes',
+        queryset=ImagenLibro.objects.order_by('-is_portada', 'orden')
+    )
+
     qs = (SolicitudIntercambio.objects
-          .filter(id_usuario_solicitante_id=user_id)
-          .select_related('id_usuario_solicitante', 'id_usuario_receptor', 'id_libro_deseado', 'id_libro_ofrecido_aceptado')
-          .prefetch_related('ofertas__id_libro_ofrecido',
-                            Prefetch('intercambio', queryset=Intercambio.objects.order_by('-id_intercambio')))
+          .filter(
+              id_usuario_solicitante_id=user_id,
+              estado__in=[SOLICITUD_ESTADO["PENDIENTE"], SOLICITUD_ESTADO["ACEPTADA"]]
+          )
+          .select_related(
+              'id_usuario_solicitante', 'id_usuario_receptor',
+              'id_libro_deseado', 'id_libro_ofrecido_aceptado'
+          )
+          .prefetch_related(
+              'ofertas__id_libro_ofrecido',
+              prefetch_intercambio,
+              prefetch_ofertas_imgs,
+              prefetch_deseado_imgs,
+              prefetch_aceptado_imgs
+          )
           .order_by('-creada_en'))
-    return Response(SolicitudIntercambioSerializer(qs, many=True).data)
-
-
-def _roles(intercambio: Intercambio):
-    si: SolicitudIntercambio = intercambio.id_solicitud
-    return si.id_usuario_solicitante_id, si.id_usuario_receptor_id
+    
+    serializer = SolicitudIntercambioSerializer(qs, many=True, context={'request': request})
+    return Response(serializer.data)
+    # --- FIN DE OPTIMIZACIÓN ---
 
 
 @api_view(["PATCH"])

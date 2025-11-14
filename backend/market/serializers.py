@@ -17,11 +17,6 @@ class GeneroSerializer(serializers.ModelSerializer):
         fields = ("id_genero", "nombre")
 
 
-class GeneroSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Genero
-        fields = ("id_genero", "nombre")
-
 
 class LibroSerializer(serializers.ModelSerializer):
     # Alias del PK para el front
@@ -172,11 +167,30 @@ class ImagenLibroSerializer(serializers.ModelSerializer):
         return rel or None
 
 
+# En tu serializers.py
+
 class LibroSimpleSerializer(serializers.ModelSerializer):
     """Serializer simple para mostrar info básica de un libro."""
+    first_image = serializers.SerializerMethodField() # <-- AÑADIDO
+
     class Meta:
         model = Libro
-        fields = ['id_libro', 'titulo', 'autor']
+        fields = ['id_libro', 'titulo', 'autor', 'first_image'] # <-- AÑADIDO 'first_image'
+
+    def get_first_image(self, obj):
+        # obj es la instancia de Libro
+        # obj.imagenes.all() usará los datos de prefetch que cargamos en la vista
+        try:
+            # Intenta obtener la primera imagen (ya viene ordenada por el prefetch)
+            primera_imagen = obj.imagenes.all()[0]
+            rel = str(primera_imagen.url_imagen).replace('\\', '/')
+        except (AttributeError, IndexError):
+            # Si no hay imagen en el prefetch o la lista está vacía
+            rel = None # Usará el default
+
+        request = self.context.get('request')
+        # Llama a la función helper 'media_abs' que está al final de tu serializers.py
+        return media_abs(request, rel)
 
 
 class SolicitudOfertaSerializer(serializers.ModelSerializer):
@@ -186,6 +200,8 @@ class SolicitudOfertaSerializer(serializers.ModelSerializer):
         model = SolicitudOferta
         fields = ['id_oferta', 'libro_ofrecido']
 
+
+# En tu serializers.py
 
 class SolicitudIntercambioSerializer(serializers.ModelSerializer):
     solicitante = UsuarioLiteSerializer(source='id_usuario_solicitante', read_only=True)
@@ -216,14 +232,40 @@ class SolicitudIntercambioSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def _ultimo_inter(self, obj):
+    # --- INICIO DE OPTIMIZACIÓN (Helpers para usar data precargada) ---
+
+    def _get_prefetched_inter(self, obj):
+        # Helper para obtener el intercambio precargado
         try:
-            return obj.intercambio.all().order_by('-id_intercambio').first()
-        except Exception:
+            # .all() aquí usa la lista precargada, no hace una nueva consulta
+            return obj.intercambio.all()[0]
+        except (AttributeError, IndexError):
             return None
 
+    def _get_prefetched_propuesta(self, inter):
+        # Helper para obtener la propuesta aceptada precargada
+        if not inter:
+            return None
+        try:
+            # Usamos el 'to_attr' que definimos en la vista
+            return inter.propuesta_aceptada[0]
+        except (AttributeError, IndexError):
+            return None
+
+    def _get_prefetched_conv(self, inter):
+        # Helper para obtener la conversación precargada
+        if not inter:
+            return None
+        try:
+            # .all() usa la lista precargada
+            return inter.conversaciones.all()[0]
+        except (AttributeError, IndexError):
+            return None
+
+    # --- FIN DE OPTIMIZACIÓN ---
+
     def _estado_efectivo(self, obj):
-        inter = self._ultimo_inter(obj)
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
         if inter and inter.estado_intercambio:
             st = (inter.estado_intercambio or '').lower()
             if st == 'completado':
@@ -247,43 +289,30 @@ class SolicitudIntercambioSerializer(serializers.ModelSerializer):
         return self.get_estado_slug(obj) in ('aceptada', 'completado')
 
     def get_intercambio_id(self, obj):
-        inter = self._ultimo_inter(obj)
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
         return getattr(inter, 'id_intercambio', None)
 
     def get_conversacion_id(self, obj):
-        inter = self._ultimo_inter(obj)
-        if not inter:
-            return None
-        try:
-            conv = inter.conversaciones.all().order_by('id_conversacion').first()
-            return getattr(conv, 'id_conversacion', None)
-        except Exception:
-            return None
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
+        conv = self._get_prefetched_conv(inter) # <--- MODIFICADO
+        return getattr(conv, 'id_conversacion', None)
 
     def get_lugar_intercambio(self, obj):
-        inter = self._ultimo_inter(obj)
-        if not inter:
-            return None
-        p = PropuestaEncuentro.objects.filter(
-            id_intercambio=inter, estado="ACEPTADA"
-        ).order_by('-id').first()
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
+        p = self._get_prefetched_propuesta(inter) # <--- MODIFICADO
         if p:
             return p.direccion or getattr(getattr(p, 'id_punto', None), 'nombre', None)
-        return getattr(inter, 'lugar_intercambio', None)
+        return getattr(inter, 'lugar_intercambio', None) # Fallback
 
     def get_fecha_intercambio_pactada(self, obj):
-        inter = self._ultimo_inter(obj)
-        if not inter:
-            return None
-        p = PropuestaEncuentro.objects.filter(
-            id_intercambio=inter, estado="ACEPTADA"
-        ).order_by('-id').first()
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
+        p = self._get_prefetched_propuesta(inter) # <--- MODIFICADO
         if p:
             return p.fecha_hora
-        return getattr(inter, 'fecha_intercambio_pactada', None)
+        return getattr(inter, 'fecha_intercambio_pactada', None) # Fallback
 
     def get_fecha_completado(self, obj):
-        inter = self._ultimo_inter(obj)
+        inter = self._get_prefetched_inter(obj) # <--- MODIFICADO
         return getattr(inter, 'fecha_completado', None)
 
 
@@ -340,3 +369,4 @@ def media_abs(request, rel: str | None = None) -> str:
     except Exception:
         pass
     return url_path
+

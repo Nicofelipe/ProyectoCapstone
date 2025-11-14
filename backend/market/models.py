@@ -1,11 +1,15 @@
-# market models.py
+# market/models.py
 
 from django.db import models
-from rest_framework import serializers
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO
-
+from .constants import (
+    SOLICITUD_ESTADO,
+    INTERCAMBIO_ESTADO,
+    MEETING_METHOD,
+    PROPOSAL_STATE,
+    PUNTO_TIPO,
+)
 
 class Genero(models.Model):
     id_genero = models.AutoField(primary_key=True)
@@ -13,35 +17,29 @@ class Genero(models.Model):
 
     class Meta:
         db_table = 'genero'
-        managed = False  # si la tabla ya existe en tu BD; pon True si la migrará Django
+        managed = False
 
     def __str__(self):
         return self.nombre
 
 
-# Referencias entre apps por string:
-# 'core.Usuario', 'market.Libro'
-
 class Libro(models.Model):
     id_libro = models.AutoField(primary_key=True)
     titulo = models.CharField(max_length=255)
     isbn = models.CharField(max_length=13)
-    anio_publicacion = models.PositiveSmallIntegerField()  # YEAR en MySQL -> int corto
+    anio_publicacion = models.PositiveSmallIntegerField()
     autor = models.CharField(max_length=255)
-    estado = models.CharField(max_length=20)               # Enum en BD; aquí como CharField
+    estado = models.CharField(max_length=20)
     descripcion = models.TextField()
     editorial = models.CharField(max_length=255)
-    tipo_tapa = models.CharField(max_length=20)            # Enum en BD; aquí CharField
+    tipo_tapa = models.CharField(max_length=20)
     disponible = models.BooleanField(default=True)
     fecha_subida = models.DateTimeField(db_column='fecha_subida', auto_now_add=False)
 
-    # Motivo de no disponibilidad:
-    # OWNER: desactivado por dueño (editable/reactivable)
-    # BAJA:  moderación/admin (no editable/ni eliminable)
-    # COMPLETADO: por intercambio completado (histórico; no editable/ni eliminable)
+    # Motivo no-disponible (OWNER/BAJA/COMPLETADO o NULL)
     status_reason = models.CharField(
         max_length=15, null=True, blank=True, db_column='status_reason',
-        help_text=_("OWNER | BAJA | COMPLETADO (o NULL si disponible normalmente)")
+        help_text=_("OWNER | BAJA | COMPLETADO (o NULL si disponible)")
     )
 
     id_usuario = models.ForeignKey(
@@ -92,7 +90,6 @@ class Calificacion(models.Model):
     def __str__(self):
         return f"Calificación {self.puntuacion} a {self.id_usuario_calificado_id}"
 
-
 Clasificacion = Calificacion  # alias compat
 
 
@@ -124,7 +121,6 @@ class Favorito(models.Model):
 
 class ImagenLibro(models.Model):
     id_imagen = models.AutoField(primary_key=True)
-    # Dejá CharField si no querés depender de Pillow.
     url_imagen = models.CharField(max_length=255, null=True, blank=True)
     descripcion = models.CharField(max_length=255, null=True, blank=True)
 
@@ -135,7 +131,6 @@ class ImagenLibro(models.Model):
         related_name='imagenes'
     )
 
-    # Importante: refleja que la columna en BD no acepta NULL
     orden = models.PositiveIntegerField(default=0, db_column='orden')
     is_portada = models.BooleanField(default=False, db_column='is_portada')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
@@ -267,15 +262,24 @@ class ConversacionMensaje(models.Model):
 
 class SolicitudIntercambio(models.Model):
     id_solicitud = models.AutoField(primary_key=True)
-    id_usuario_solicitante = models.ForeignKey('core.Usuario', db_column='id_usuario_solicitante',
-                                               on_delete=models.DO_NOTHING, related_name='solicitudes_hechas')
-    id_usuario_receptor = models.ForeignKey('core.Usuario', db_column='id_usuario_receptor',
-                                            on_delete=models.DO_NOTHING, related_name='solicitudes_recibidas')
-    id_libro_deseado = models.ForeignKey('market.Libro', db_column='id_libro_deseado',
-                                         on_delete=models.DO_NOTHING, related_name='solicitudes_para_este_libro')
-    id_libro_ofrecido_aceptado = models.ForeignKey('market.Libro', db_column='id_libro_ofrecido_aceptado_id',
-                                                   on_delete=models.SET_NULL, null=True, blank=True,
-                                                   related_name='solicitudes_donde_fue_aceptado')
+    id_usuario_solicitante = models.ForeignKey(
+        'core.Usuario', db_column='id_usuario_solicitante',
+        on_delete=models.DO_NOTHING, related_name='solicitudes_hechas'
+    )
+    id_usuario_receptor = models.ForeignKey(
+        'core.Usuario', db_column='id_usuario_receptor',
+        on_delete=models.DO_NOTHING, related_name='solicitudes_recibidas'
+    )
+    id_libro_deseado = models.ForeignKey(
+        'market.Libro', db_column='id_libro_deseado',
+        on_delete=models.DO_NOTHING, related_name='solicitudes_para_este_libro'
+    )
+    # Nota: el nombre de columna en BD es id_libro_ofrecido_aceptado_id
+    id_libro_ofrecido_aceptado = models.ForeignKey(
+        'market.Libro', db_column='id_libro_ofrecido_aceptado_id',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='solicitudes_donde_fue_aceptado'
+    )
 
     estado = models.CharField(
         max_length=10,
@@ -295,10 +299,14 @@ class SolicitudIntercambio(models.Model):
 
 class SolicitudOferta(models.Model):
     id_oferta = models.AutoField(primary_key=True)
-    id_solicitud = models.ForeignKey(SolicitudIntercambio, db_column='id_solicitud',
-                                     on_delete=models.CASCADE, related_name='ofertas')
-    id_libro_ofrecido = models.ForeignKey('market.Libro', db_column='id_libro_ofrecido',
-                                          on_delete=models.CASCADE, related_name='ofertas_en_solicitudes')
+    id_solicitud = models.ForeignKey(
+        SolicitudIntercambio, db_column='id_solicitud',
+        on_delete=models.CASCADE, related_name='ofertas'
+    )
+    id_libro_ofrecido = models.ForeignKey(
+        'market.Libro', db_column='id_libro_ofrecido',
+        on_delete=models.CASCADE, related_name='ofertas_en_solicitudes'
+    )
 
     class Meta:
         db_table = 'solicitud_oferta'
@@ -307,10 +315,15 @@ class SolicitudOferta(models.Model):
 
 class Intercambio(models.Model):
     id_intercambio = models.AutoField(primary_key=True)
-    id_solicitud = models.ForeignKey('market.SolicitudIntercambio', db_column='id_solicitud',
-                                     on_delete=models.CASCADE, related_name='intercambio')
-    id_libro_ofrecido_aceptado = models.ForeignKey('market.Libro', db_column='id_libro_ofrecido_aceptado',
-                                                   on_delete=models.DO_NOTHING, related_name='intercambios_donde_fue_aceptado')
+    id_solicitud = models.ForeignKey(
+        'market.SolicitudIntercambio', db_column='id_solicitud',
+        on_delete=models.CASCADE, related_name='intercambio'
+    )
+    # Nota: el nombre de columna en BD aquí es id_libro_ofrecido_aceptado (sin _id)
+    id_libro_ofrecido_aceptado = models.ForeignKey(
+        'market.Libro', db_column='id_libro_ofrecido_aceptado',
+        on_delete=models.DO_NOTHING, related_name='intercambios_donde_fue_aceptado'
+    )
     lugar_intercambio = models.CharField(max_length=255, default='A coordinar')
     fecha_intercambio_pactada = models.DateTimeField(null=True, blank=True)
     estado_intercambio = models.CharField(
@@ -326,9 +339,10 @@ class Intercambio(models.Model):
 
 
 class IntercambioCodigo(models.Model):
-    # PK es id_intercambio, por eso usamos OneToOneField con primary_key=True
-    id_intercambio = models.OneToOneField('market.Intercambio', db_column='id_intercambio',
-                                          on_delete=models.CASCADE, related_name='codigo', primary_key=True)
+    id_intercambio = models.OneToOneField(
+        'market.Intercambio', db_column='id_intercambio',
+        on_delete=models.CASCADE, related_name='codigo', primary_key=True
+    )
     codigo = models.CharField(max_length=12, unique=True)
     expira_en = models.DateTimeField(null=True, blank=True)
     usado_en = models.DateTimeField(null=True, blank=True)
@@ -358,35 +372,40 @@ class PuntoEncuentro(models.Model):
 
 
 class PropuestaEncuentro(models.Model):
-    id_intercambio = models.ForeignKey('market.Intercambio',
-                                       on_delete=models.CASCADE,
-                                       related_name='propuestas')
-    propuesta_por = models.ForeignKey('core.Usuario',
-                                      on_delete=models.CASCADE,
-                                      related_name='propuestas_creadas')
-
+    id_intercambio = models.ForeignKey(
+        'market.Intercambio', on_delete=models.CASCADE, 
+        related_name='propuestas'  # <--- AQUÍ ESTÁ LA CLAVE
+    )
+    propuesta_por = models.ForeignKey(
+        'core.Usuario', on_delete=models.CASCADE, related_name='propuestas_creadas'
+    )
     metodo = models.CharField(max_length=10, choices=[(k, v) for k, v in MEETING_METHOD.items()])
 
-    # Modo MANUAL
+    # MANUAL
     latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     direccion = models.CharField(max_length=255, null=True, blank=True)
 
-    # Modo PREDEF
-    id_punto = models.ForeignKey('market.PuntoEncuentro', null=True, blank=True,
-                                 on_delete=models.SET_NULL, related_name='propuestas')
+    # PREDEF
+    id_punto = models.ForeignKey(
+        'market.PuntoEncuentro', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='propuestas'
+    )
 
     fecha_hora = models.DateTimeField()
     notas = models.CharField(max_length=240, null=True, blank=True)
 
-    estado = models.CharField(max_length=10,
-                              choices=[(k, v) for k, v in PROPOSAL_STATE.items()],
-                              default="PENDIENTE")
-    decidida_por = models.ForeignKey('core.Usuario', null=True, blank=True,
-                                     on_delete=models.SET_NULL, related_name='propuestas_decididas')
+    estado = models.CharField(
+        max_length=10, choices=[(k, v) for k, v in PROPOSAL_STATE.items()],
+        default="PENDIENTE"
+    )
+    decidida_por = models.ForeignKey(
+        'core.Usuario', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='propuestas_decididas'
+    )
     decidida_en = models.DateTimeField(null=True, blank=True)
 
-    activa = models.BooleanField(default=True)  # útil para filtros rápidos
+    activa = models.BooleanField(default=True)
     creada_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:

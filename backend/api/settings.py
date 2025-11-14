@@ -25,12 +25,14 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 
 
 # Si estás detrás de un proxy (Railway) que termina TLS:
+# Si estás detrás de un proxy (Railway) que termina TLS:
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 
-# Cookies seguras (opcional, recomendado en prod)
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Cookies seguras (SOLO en producción)
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # --- Apps ---
 INSTALLED_APPS = [

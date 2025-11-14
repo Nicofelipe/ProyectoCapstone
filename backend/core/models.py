@@ -82,8 +82,8 @@ class Usuario(models.Model):
     # Si luego querés ImageField, instala Pillow y cambialo
     imagen_perfil = models.CharField(max_length=255, null=True, blank=True)
 
-    activo = models.BooleanField(default=False)
-    verificado = models.BooleanField(default=False)
+    activo = models.BooleanField(default=False, null=True)
+    verificado = models.BooleanField(default=False, null=True)
 
      # ✅ agrega estas dos properties
     @property

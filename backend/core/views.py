@@ -1,17 +1,19 @@
+# core/views.py
 from django.conf import settings
 from django.utils import timezone
+from datetime import timedelta
 from django.core.files.storage import default_storage
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, send_mail
 from email.mime.image import MIMEImage
-from django.contrib.auth.hashers import check_password
-from django.db.models import Q, Avg, Count
-from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.hashers import check_password, make_password
+from django.db.models import Q, Avg, Count, F
 from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
+from .permissions import IsAdminUser as IsCambiotecaAdmin  # <- tu permiso custom
 from .models import PasswordResetToken, Usuario, Region, Comuna
 from .serializers import (
     RegisterSerializer, RegionSerializer, ComunaSerializer,
@@ -32,12 +34,12 @@ import secrets
 # =========================
 def _abs_media_url(request, rel_path: str) -> str:
     """
-    Dada una ruta relativa en MEDIA (p.ej. 'avatars/xx.jpg') devuelve URL absoluta.
-    Si ya viene absoluta (http/https), la retorna tal cual.
+    Si rel_path está en MEDIA (p.ej. 'avatars/xx.jpg'), devuelve URL absoluta.
+    Si ya viene absoluta, la retorna tal cual.
     """
     if not rel_path:
         rel_path = ''
-    if str(rel_path).startswith('http://') or str(rel_path).startswith('https://'):
+    if str(rel_path).startswith(('http://', 'https://')):
         return str(rel_path)
     media_prefix = settings.MEDIA_URL.lstrip('/')
     path_clean = str(rel_path).lstrip('/')
@@ -47,11 +49,9 @@ def _abs_media_url(request, rel_path: str) -> str:
         url_path = '/' + media_prefix + path_clean
     return request.build_absolute_uri(url_path)
 
-
 def _save_avatar(file_obj) -> str:
     """
-    Guarda el archivo en MEDIA_ROOT/avatars/<uuid>.<ext> y devuelve la ruta relativa
-    (por ejemplo: 'avatars/2f3c...b.jpg').
+    Guarda el archivo en MEDIA_ROOT/avatars/<uuid>.<ext> y devuelve la ruta relativa.
     """
     try:
         file_obj.seek(0)
@@ -62,7 +62,6 @@ def _save_avatar(file_obj) -> str:
     ext = os.path.splitext(original)[1].lower() or ".jpg"
     rel_path = f"avatars/{uuid.uuid4().hex}{ext}"
 
-    # Crea carpeta si no existe (FS local)
     try:
         base_str = str(settings.MEDIA_ROOT)
         os.makedirs(os.path.join(base_str, "avatars"), exist_ok=True)
@@ -73,11 +72,15 @@ def _save_avatar(file_obj) -> str:
     return str(saved_rel).replace("\\", "/")
 
 # =========================
-# LOGIN
+# LOGIN HS256 (opcional / no recomendado si ya usas SimpleJWT en views_auth.py)
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
+    """
+    Si ya usas /core/auth/login/ (SimpleJWT) NO publiques este endpoint en urls.
+    Lo dejo por compatibilidad, pero idealmente deshabilitar.
+    """
     email = (request.data.get("email") or "").strip()
     contrasena = request.data.get("contrasena") or ""
 
@@ -154,7 +157,7 @@ def register_usuario(request):
     return Response(ser.errors, status=400)
 
 # =========================
-# CATÁLOGO
+# CATÁLOGO (regiones / comunas)
 # =========================
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -176,11 +179,6 @@ def comunas_view(request):
 # =========================
 FRONTEND_RESET_URL = getattr(settings, 'FRONTEND_RESET_URL', 'http://localhost:8100/auth/reset-password')
 
-# =========================
-# Forgot / Reset password
-# =========================
-FRONTEND_RESET_URL = getattr(settings, 'FRONTEND_RESET_URL', 'http://localhost:8100/auth/reset-password')
-
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
@@ -193,13 +191,10 @@ def forgot_password(request):
         token = secrets.token_urlsafe(48)
         PasswordResetToken.objects.create(user=user, token=token)
 
-        # Construcción robusta del enlace (sin dobles barras)
         base_url = str(getattr(settings, 'FRONTEND_RESET_URL', FRONTEND_RESET_URL)).rstrip('/')
         reset_link = f"{base_url}/{token}"
 
         subject = "Restablece tu contraseña - Cambioteca"
-
-        # Remitente a prueba de vacíos
         from_email = (
             getattr(settings, 'DEFAULT_FROM_EMAIL', None)
             or getattr(settings, 'EMAIL_HOST_USER', None)
@@ -285,7 +280,6 @@ def forgot_password(request):
             if settings.DEBUG:
                 print("WARNING: No se pudo adjuntar el logo:", e)
 
-        # Envío con manejo de error para no romper la vista
         try:
             msg.send(fail_silently=False)
         except Exception as e:
@@ -307,7 +301,7 @@ def reset_password(request):
     return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # =========================
-# Perfil
+# Perfil / resumen / libros
 # =========================
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -316,17 +310,19 @@ def user_profile_view(request, user_id: int):
     if not user:
         return Response({"detail": "Usuario no encontrado."}, status=404)
 
-    # === CAMBIO: sólo libros disponibles del usuario
     libros_count = Libro.objects.filter(id_usuario_id=user_id, disponible=True).count()
 
-    # === CAMBIO: sólo intercambios Completados donde participó
-    intercambios_count = Intercambio.objects.filter(
-    estado_intercambio='Completado',
-    id_solicitud__id_usuario_solicitante_id=user_id
-    ).count() + Intercambio.objects.filter(
-        estado_intercambio='Completado',
-        id_solicitud__id_usuario_receptor_id=user_id
-    ).count()
+    intercambios_count = (
+        Intercambio.objects.filter(
+            estado_intercambio='Completado',
+            id_solicitud__id_usuario_solicitante_id=user_id
+        ).count()
+        +
+        Intercambio.objects.filter(
+            estado_intercambio='Completado',
+            id_solicitud__id_usuario_receptor_id=user_id
+        ).count()
+    )
 
     agg = Calificacion.objects.filter(id_usuario_calificado_id=user_id).aggregate(
         avg=Avg('puntuacion'), total=Count('id_clasificacion')
@@ -357,9 +353,7 @@ def user_profile_view(request, user_id: int):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def user_intercambios_view(request, user_id: int):
-    from django.db.models import Q
-    # imports locales para no tocar los de arriba
-    from market.models import Intercambio, ImagenLibro, Conversacion
+    from market.models import ImagenLibro, Conversacion
 
     qs = (
         Intercambio.objects
@@ -392,18 +386,12 @@ def user_intercambios_view(request, user_id: int):
     out = []
     for i in qs:
         si = i.id_solicitud
-
-        # ✅ roles correctos:
-        # - solicitante = quien creó la solicitud (y ofreció el libro aceptado)
-        # - ofreciente  = el mismo solicitante (dueño del libro ofrecido aceptado)
-        # - solicitado  = usuario receptor (dueño del libro deseado)
         solicitante_nombre = getattr(si.id_usuario_solicitante, 'nombre_usuario', None)
         solicitado_nombre  = getattr(si.id_usuario_receptor,   'nombre_usuario', None)
 
         ld = si.id_libro_deseado
         lo = i.id_libro_ofrecido_aceptado
 
-        # Conversación del intercambio (si existe)
         conv = Conversacion.objects.filter(id_intercambio=i).first()
 
         out.append({
@@ -416,7 +404,7 @@ def user_intercambios_view(request, user_id: int):
                 si.creada_en
             ),
             "solicitante": solicitante_nombre,
-            "ofreciente": solicitante_nombre,   # 👈 antes estaba invertido
+            "ofreciente": solicitante_nombre,
             "solicitado": solicitado_nombre,
             "libro_deseado": {
                 "id": getattr(ld, 'id_libro', None),
@@ -429,19 +417,173 @@ def user_intercambios_view(request, user_id: int):
                 "portada": _portada_abs(lo),
             },
             "lugar": i.lugar_intercambio,
-            "conversacion_id": getattr(conv, "id_conversacion", None),  # para que el chat aparezca abajo
+            "conversacion_id": getattr(conv, "id_conversacion", None),
         })
 
     return Response(out)
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def user_books_view(request, user_id: int):
+    from market.models import ImagenLibro
+
+    qs = (Libro.objects
+          .filter(id_usuario_id=user_id, disponible=True)
+          .only("id_libro", "titulo", "autor", "fecha_subida")
+          .order_by("-fecha_subida", "-id_libro"))
+
+    def _portada_abs(l):
+        rel = (ImagenLibro.objects
+               .filter(id_libro=l)
+               .order_by("-is_portada", "orden", "id_imagen")
+               .values_list("url_imagen", flat=True)
+               .first()) or ""
+        return _abs_media_url(request, rel)
+
+    out = [{
+        "id": b.id_libro,
+        "titulo": b.titulo,
+        "autor": b.autor,
+        "portada": _portada_abs(b),
+        "fecha_subida": b.fecha_subida,
+    } for b in qs]
+
+    return Response(out)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def user_summary(request, id: int):
+    u = Usuario.objects.filter(pk=id, activo=True).select_related('comuna').first()
+    if not u:
+        return Response({"detail": "Usuario no encontrado"}, status=404)
+
+    if u.imagen_perfil:
+        u.imagen_perfil = u.imagen_perfil.replace("\\", "/")
+
+    libros = Libro.objects.filter(id_usuario=id, disponible=True).count()
+    inter = Intercambio.objects.filter(
+        Q(id_solicitud__id_usuario_solicitante=id) | Q(id_solicitud__id_usuario_receptor=id),
+        estado_intercambio='Completado'
+    ).count()
+    rating = (Calificacion.objects
+              .filter(id_usuario_calificado=id)
+              .aggregate(avg=Avg("puntuacion"))
+              .get("avg") or 0)
+
+    recents = (Intercambio.objects
+           .select_related('id_solicitud', 'id_libro_ofrecido_aceptado', 'id_solicitud__id_libro_deseado')
+           .filter(Q(id_solicitud__id_usuario_solicitante=id) | Q(id_solicitud__id_usuario_receptor=id))
+           .order_by("-id_intercambio")[:10])
+
+    history = []
+    for it in recents:
+        si = it.id_solicitud
+        a = getattr(it.id_libro_ofrecido_aceptado, 'titulo', None)
+        b = getattr(si.id_libro_deseado, 'titulo', None)
+        titulo = f"{a or '¿?'} ↔ {b or '¿?'}"
+        history.append({
+            "id": it.id_intercambio,
+            "titulo": titulo,
+            "estado": it.estado_intercambio,
+            "fecha": it.fecha_intercambio_pactada or it.fecha_completado,
+        })
+
+    default_rel = "avatars/avatardefecto.jpg"
+    pic_rel = u.imagen_perfil or default_rel
+    avatar_url = _abs_media_url(request, pic_rel)
+
+    user_payload = {
+        "id_usuario": u.id_usuario,
+        "email": u.email,
+        "nombres": u.nombres,
+        "apellido_paterno": u.apellido_paterno,
+        "apellido_materno": u.apellido_materno,
+        "nombre_usuario": u.nombre_usuario,
+        "imagen_perfil": u.imagen_perfil,
+        "avatar_url": avatar_url,  # URL absoluta
+        "verificado": u.verificado,
+        "rut": u.rut,
+        "telefono": u.telefono,
+        "direccion": u.direccion,
+        "numeracion": u.numeracion,
+        "direccion_completa": f"{(u.direccion or '').strip()} {(u.numeracion or '').strip()}".strip(),
+        "comuna_id": getattr(u.comuna, "id_comuna", None),
+        "comuna_nombre": getattr(u.comuna, "nombre", None),
+    }
+
+    return Response({
+        "user": user_payload,
+        "metrics": {
+            "libros": libros,
+            "intercambios": inter,
+            "calificacion": float(rating or 0)
+        },
+        "history": history,
+    })
+
+# =========================
+# Perfil: edición y avatar
+# =========================
+EDITABLE_FIELDS = {"nombres", "apellido_paterno", "apellido_materno", "telefono", "direccion", "numeracion"}
+
+@api_view(["PATCH"])
+@permission_classes([AllowAny])  # cambia a IsAuthenticated cuando actives auth real
+def update_user_profile(request, id: int):
+    u = Usuario.objects.filter(pk=id, activo=True).first()
+    if not u:
+        return Response({"detail": "Usuario no encontrado"}, status=404)
+
+    for f in EDITABLE_FIELDS:
+        if f in request.data:
+            setattr(u, f, (request.data.get(f) or "").strip())
+    u.save()
+
+    data = UsuarioSummarySerializer(u).data
+    data.update({
+        "telefono": u.telefono,
+        "direccion": u.direccion,
+        "numeracion": u.numeracion,
+        "direccion_completa": f"{u.direccion or ''} {u.numeracion or ''}".strip(),
+    })
+    return Response(data)
+
+@api_view(["PATCH"])
+@permission_classes([AllowAny])  # o IsAuthenticated
+@parser_classes([MultiPartParser, FormParser])
+def update_user_avatar(request, id: int):
+    u = Usuario.objects.filter(pk=id, activo=True).first()
+    if not u:
+        return Response({"detail": "Usuario no encontrado"}, status=404)
+
+    file_obj = request.FILES.get("imagen_perfil")
+    if not file_obj:
+        return Response({"detail": "Falta el archivo 'imagen_perfil'."}, status=400)
+
+    # Validaciones básicas
+    if file_obj.size > 5 * 1024 * 1024:
+        return Response({"detail": "La imagen no puede superar 5 MB."}, status=400)
+    if not file_obj.content_type.startswith("image/"):
+        return Response({"detail": "El archivo debe ser una imagen."}, status=400)
+
+    try:
+        rel = _save_avatar(file_obj)
+        u.imagen_perfil = rel
+        u.save(update_fields=["imagen_perfil"])
+        abs_url = _abs_media_url(request, rel)
+        return Response({"imagen_perfil": rel, "avatar_url": abs_url}, status=200)
+    except Exception as e:
+        return Response({"detail": f"No se pudo guardar: {e}"}, status=400)
+
+# =========================
+# Cambio de contraseña
+# =========================
 @api_view(["POST"])
 @permission_classes([AllowAny])
-def change_password_view(request):
+def change_password_by_userid(request):
     """
     Body: { "user_id": 123, "current": "...", "new": "..." }
+    (Menos seguro. Mejor usar la versión autenticada abajo)
     """
-    from django.contrib.auth.hashers import check_password, make_password
-
     user_id = request.data.get("user_id")
     current = request.data.get("current") or ""
     new = request.data.get("new") or ""
@@ -468,165 +610,13 @@ def change_password_view(request):
     user.save(update_fields=['contrasena'])
     return Response({"message": "Contraseña actualizada."})
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def user_summary(request, id: int):
-    u = Usuario.objects.filter(pk=id, activo=True).select_related('comuna').first()
-    if not u:
-        return Response({"detail": "Usuario no encontrado"}, status=404)
-
-    if u.imagen_perfil:
-        u.imagen_perfil = u.imagen_perfil.replace("\\", "/")
-
-    # === CAMBIO: contar sólo libros disponibles
-    libros = Libro.objects.filter(id_usuario=id, disponible=True).count()
-
-    # === CAMBIO: contar sólo intercambios Completados
-    inter = Intercambio.objects.filter(
-        Q(id_solicitud__id_usuario_solicitante=id) | Q(id_solicitud__id_usuario_receptor=id),
-        estado_intercambio='Completado'
-    ).count()
-
-    rating = (Calificacion.objects
-              .filter(id_usuario_calificado=id)
-              .aggregate(avg=Avg("puntuacion"))
-              .get("avg") or 0)
-
-    recents = (Intercambio.objects
-           .select_related('id_solicitud', 'id_libro_ofrecido_aceptado', 'id_solicitud__id_libro_deseado')
-           .filter(Q(id_solicitud__id_usuario_solicitante=id) | Q(id_solicitud__id_usuario_receptor=id))
-           .order_by("-id_intercambio")[:10])
-
-    history = []
-    for it in recents:
-        si = it.id_solicitud
-        a = getattr(it.id_libro_ofrecido_aceptado, 'titulo', None)
-        b = getattr(si.id_libro_deseado, 'titulo', None)
-        titulo = f"{a or '¿?'} ↔ {b or '¿?'}"
-        history.append({
-            "id": it.id_intercambio,
-            "titulo": titulo,
-            "estado": it.estado_intercambio,
-            "fecha": it.fecha_intercambio_pactada or it.fecha_completado,
-        })
-
-    user_payload = {
-        "id_usuario": u.id_usuario,
-        "email": u.email,
-        "nombres": u.nombres,
-        "apellido_paterno": u.apellido_paterno,
-        "apellido_materno": u.apellido_materno,
-        "nombre_usuario": u.nombre_usuario,
-        "imagen_perfil": u.imagen_perfil,
-        "verificado": u.verificado,
-        "rut": u.rut,
-        "telefono": u.telefono,
-        "direccion": u.direccion,
-        "numeracion": u.numeracion,
-        "direccion_completa": f"{(u.direccion or '').strip()} {(u.numeracion or '').strip()}".strip(),
-        "comuna_id": getattr(u.comuna, "id_comuna", None),
-        "comuna_nombre": getattr(u.comuna, "nombre", None),
-    }
-
-    return Response({
-        "user": user_payload,
-        "metrics": {
-            "libros": libros,
-            "intercambios": inter,
-            "calificacion": float(rating or 0)
-        },
-        "history": history,
-    })
-
-EDITABLE_FIELDS = {
-    "nombres", "apellido_paterno", "apellido_materno",
-    "telefono", "direccion", "numeracion"
-}
-
-@api_view(["PATCH"])
-@permission_classes([AllowAny])  # cambia a IsAuthenticated cuando habilites auth real
-def update_user_profile(request, id: int):
-    u = Usuario.objects.filter(pk=id, activo=True).first()
-    if not u:
-        return Response({"detail": "Usuario no encontrado"}, status=404)
-
-    updatable = ["nombres", "apellido_paterno", "apellido_materno", "telefono", "direccion", "numeracion"]
-    for f in updatable:
-        if f in request.data:
-            setattr(u, f, (request.data.get(f) or "").strip())
-    u.save()
-
-    data = UsuarioSummarySerializer(u).data
-    data.update({
-        "telefono": u.telefono,
-        "direccion": u.direccion,
-        "numeracion": u.numeracion,
-        "direccion_completa": f"{u.direccion or ''} {u.numeracion or ''}".strip(),
-    })
-    return Response(data)
-
-# ========= Subir / Cambiar Avatar =========
-@api_view(["PATCH"])
-@permission_classes([AllowAny])  # cambia a IsAuthenticated si ya manejas auth real
-@parser_classes([MultiPartParser, FormParser])
-def update_user_avatar(request, id: int):
-    u = Usuario.objects.filter(pk=id, activo=True).first()
-    if not u:
-        return Response({"detail": "Usuario no encontrado"}, status=404)
-
-    file_obj = request.FILES.get("imagen_perfil")
-    if not file_obj:
-        return Response({"detail": "Falta el archivo 'imagen_perfil'."}, status=400)
-
-    # Validaciones básicas
-    if file_obj.size > 5 * 1024 * 1024:
-        return Response({"detail": "La imagen no puede superar 5 MB."}, status=400)
-    if not file_obj.content_type.startswith("image/"):
-        return Response({"detail": "El archivo debe ser una imagen."}, status=400)
-
-    try:
-        rel = _save_avatar(file_obj)
-        u.imagen_perfil = rel
-        u.save(update_fields=["imagen_perfil"])
-        return Response({"imagen_perfil": rel}, status=200)
-    except Exception as e:
-        return Response({"detail": f"No se pudo guardar: {e}"}, status=400)
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def user_books_view(request, user_id: int):
-    from market.models import Libro, ImagenLibro
-
-    qs = (Libro.objects
-          .filter(id_usuario_id=user_id, disponible=True)
-          .only("id_libro", "titulo", "autor", "fecha_subida")
-          .order_by("-fecha_subida", "-id_libro"))
-
-    def _portada_abs(l):
-        rel = (ImagenLibro.objects
-               .filter(id_libro=l)
-               .order_by("-is_portada", "orden", "id_imagen")
-               .values_list("url_imagen", flat=True)
-               .first()) or ""
-        return _abs_media_url(request, rel)
-
-    out = [{
-        "id": b.id_libro,
-        "titulo": b.titulo,
-        "autor": b.autor,
-        "portada": _portada_abs(b),
-        "fecha_subida": b.fecha_subida,
-    } for b in qs]
-
-    return Response(out)
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def change_password_view(request):
-    from django.contrib.auth.hashers import check_password, make_password
-
-    user = request.user  # ← Usuario autenticado por tu UsuarioJWTAuthentication
+    """
+    Requiere que el request.user venga autenticado por tu UsuarioJWTAuthentication.
+    """
+    user = request.user
     current = request.data.get("current") or ""
     new = request.data.get("new") or ""
 
@@ -638,7 +628,7 @@ def change_password_view(request):
         ok = check_password(current, user.contrasena)
     except Exception:
         ok = False
-    if not ok and user.contrasena == current:  # compatibilidad si quedó plano
+    if not ok and user.contrasena == current:
         ok = True
     if not ok:
         return Response({"detail": "Contraseña actual incorrecta."}, status=400)
@@ -646,3 +636,133 @@ def change_password_view(request):
     user.contrasena = make_password(new)
     user.save(update_fields=['contrasena'])
     return Response({"message": "Contraseña actualizada."})
+
+# =========================
+# VISTAS DE ADMINISTRACIÓN
+# =========================
+@api_view(['GET'])
+@permission_classes([IsCambiotecaAdmin])
+def admin_dashboard_summary(request):
+    """
+    Estadísticas para dashboard admin.
+    Evitamos depender de related_names no confirmados.
+    """
+    total_users = Usuario.objects.count()
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    try:
+        new_users_last_7_days = Usuario.objects.filter(fecha_registro__gte=seven_days_ago).count()
+    except Exception:
+        new_users_last_7_days = 0
+
+    total_books = Libro.objects.count()
+    completed_exchanges = Intercambio.objects.filter(estado_intercambio='Completado').count()
+    in_progress_exchanges = Intercambio.objects.filter(estado_intercambio='Aceptado').count()
+
+    # Top 5 usuarios por intercambios completados (como solicitante o receptor)
+    top_active_users = (
+        Usuario.objects
+        .annotate(
+            completed_as_solicitante=Count(
+                'id_usuario',
+                filter=Q(
+                    id_usuario=F('id_usuario'),
+                    solicitudes_hechas__intercambio__estado_intercambio='Completado'
+                ),
+            ),
+            completed_as_receptor=Count(
+                'id_usuario',
+                filter=Q(
+                    id_usuario=F('id_usuario'),
+                    solicitudes_recibidas__intercambio__estado_intercambio='Completado'
+                ),
+            )
+        )
+        .annotate(total_completed_exchanges=F('completed_as_solicitante') + F('completed_as_receptor'))
+        .filter(total_completed_exchanges__gt=0)
+        .order_by('-total_completed_exchanges')
+        .values('nombre_usuario', 'email', 'total_completed_exchanges')[:5]
+    )
+
+    users_by_region = (
+        Usuario.objects
+        .values('comuna__id_region__nombre')
+        .annotate(total=Count('id_usuario'))
+        .order_by('-total')
+    )
+
+    return Response({
+        "total_users": total_users,
+        "new_users_last_7_days": new_users_last_7_days,
+        "total_books": total_books,
+        "completed_exchanges": completed_exchanges,
+        "in_progress_exchanges": in_progress_exchanges,
+        "users_by_region": list(users_by_region),
+        "top_active_users": list(top_active_users),
+    })
+
+@api_view(['GET'])
+@permission_classes([IsCambiotecaAdmin])
+def admin_get_all_users(request):
+    users = Usuario.objects.all().order_by('-id_usuario')
+    serializer = UsuarioLiteSerializer(users, many=True)
+    return Response(serializer.data)
+
+@api_view(["POST"])
+@permission_classes([IsCambiotecaAdmin])
+def admin_toggle_user_active(request, user_id: int):
+    """
+    Bloquea/desbloquea usuarios. Envía email al deshabilitar.
+    """
+    try:
+        user_to_toggle = Usuario.objects.get(pk=user_id)
+    except Usuario.DoesNotExist:
+        return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user.id_usuario == user_to_toggle.id_usuario:
+        return Response({"detail": "No puedes bloquearte a ti mismo."}, status=400)
+
+    was_active_before = user_to_toggle.activo
+    user_to_toggle.activo = not user_to_toggle.activo
+    user_to_toggle.save(update_fields=['activo'])
+
+    # Si lo deshabilitamos, opcionalmente invalidar tokens (si usas token_version)
+    # Usuario.objects.filter(pk=user_id).update(token_version=F('token_version') + 1)
+
+    if was_active_before and not user_to_toggle.activo:
+        try:
+            user_name = user_to_toggle.nombres or user_to_toggle.nombre_usuario or "usuario"
+            send_mail(
+                'Tu cuenta en Cambioteca ha sido deshabilitada',
+                f'Hola {user_name},\n\n'
+                'Te informamos que tu cuenta en Cambioteca ha sido deshabilitada por un administrador.\n'
+                'No podrás iniciar sesión ni realizar intercambios.\n\n'
+                'Si crees que esto es un error, por favor contacta a soporte.\n\n'
+                'Saludos,\nEl equipo de Cambioteca',
+                getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@cambioteca.local'),
+                [user_to_toggle.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"[ADMIN] Error al enviar email a {user_to_toggle.email}: {e}")
+
+    return Response({
+        "message": "Estado del usuario actualizado.",
+        "id_usuario": user_to_toggle.id_usuario,
+        "activo": user_to_toggle.activo,
+    })
+
+@api_view(['DELETE'])
+@permission_classes([IsCambiotecaAdmin])
+def admin_delete_user(request, user_id: int):
+    if request.user.id_usuario == user_id:
+        return Response({"detail": "No puedes eliminarte a ti mismo."}, status=400)
+
+    user = Usuario.objects.filter(pk=user_id).first()
+    if not user:
+        return Response({"detail": "Usuario no encontrado."}, status=404)
+
+    try:
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        return Response({"detail": f"No se pudo eliminar al usuario: {e}"}, status=409)
