@@ -36,6 +36,7 @@ if not DEBUG:
 
 # --- Apps ---
 INSTALLED_APPS = [
+    'jazzmin',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -78,6 +79,27 @@ TEMPLATES = [
         },
     },
 ]
+
+
+JAZZMIN_SETTINGS = {
+    # Título en la pestaña del navegador y en la cabecera
+    "site_title": "Admin Cambioteca",
+
+    # Título en la pantalla de login
+    "site_header": "Cambioteca",
+
+    # Título corto en la barra lateral (o "brand")
+    "site_brand": "Cambioteca",
+
+    # Texto de bienvenida en la pantalla de login
+    "welcome_sign": "Bienvenido al admin de Cambioteca",
+
+    # Copyright en el footer
+    "copyright": "Cambioteca 2025",
+
+    # Puedes poner el logo de tu app aquí
+    # "site_logo": "ruta/a/tu/logo.png",
+}
 
 WSGI_APPLICATION = "api.wsgi.application"
 
