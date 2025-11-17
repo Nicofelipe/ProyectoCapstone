@@ -1,37 +1,462 @@
-/* Igual que profile */
-.profile-content { --background: var(--app-bg); }
-.profile-content::part(scroll) { display:flex; align-items:flex-start; justify-content:center; padding:16px; }
+/* user-profile.page.scss - Igual que profile pero para vista externa */
 
-.card { width:100%; max-width:520px; background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.08); padding:18px; margin:22px 0; }
+.profile-content {
+  --background: linear-gradient(180deg,
+    #f4f4f2 0%,
+    color-mix(in srgb, #f3ded9 12%, #f4f4f2) 100%
+  );
+}
 
-.header { display:flex; gap:14px; align-items:center; }
-.avatar { width:84px; height:84px; }
-.id h2 { margin:0; font-size:1.2rem; font-weight:700; color:var(--app-text); }
-.id .email { margin:2px 0 0; color:var(--ion-color-medium); }
+.profile-content::part(scroll) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px 16px;
+}
 
-.metrics { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin:14px 0 4px; }
-.metric { text-align:center; background:#fafafa; border-radius:10px; padding:10px; }
-.metric .v { font-weight:700; font-size:1.2rem; }
-.metric .k { color:var(--ion-color-medium); font-size:.85rem; }
+/* ========== Card principal ========== */
+.card {
+  width: 100%;
+  max-width: 540px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(243, 222, 217, 0.25)
+  );
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(170, 151, 151, 0.15),
+    0 2px 8px rgba(43, 43, 43, 0.04);
+  border: 1px solid rgba(170, 151, 151, 0.2);
+  padding: 24px;
+  margin: 0;
+  transition: all 0.3s ease;
 
-.stars ion-icon { font-size:18px; color:var(--ion-color-warning); }
-.rcount { margin-left:6px; color:#666; }
+  &:hover {
+    box-shadow: 
+      0 12px 40px rgba(170, 151, 151, 0.2),
+      0 4px 12px rgba(43, 43, 43, 0.08);
+  }
+}
 
-/* Tabs como profile (3 columnas aquí) */
-.tabs { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:12px; }
-@media (max-width: 380px) { .tabs { grid-template-columns: repeat(2, 1fr); } }
-.tabs button { padding:10px 8px; border:1px solid #eaeaea; border-radius:10px; background:#fff; font-weight:600; }
-.tabs button.active { background: var(--app-muted); border-color: var(--app-accent); }
+/* ========== Header con avatar ========== */
+.header {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(170, 151, 151, 0.12);
+  position: relative;
 
-.tab-pane { margin-top:10px; }
-.muted { text-align:center; color:var(--ion-color-medium); margin:16px 0; }
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, #aa9797, transparent);
+    border-radius: 999px;
+  }
+}
 
-/* Libros (compacto, igual a profile) */
-.books-list { --inner-padding-start:8px; --inner-padding-end:8px; }
-.thumb { width:64px; height:90px; border-radius:8px; overflow:hidden; }
-.body { display:flex; flex-direction:column; gap:4px; padding:6px 0; }
-.title { display:flex; align-items:center; gap:8px; }
-.ttl { font-size:16px; font-weight:600; margin:0; line-height:1.15; }
-.author, .meta { margin:0; font-size:12px; line-height:1.2; }
-.muted { color:#7a7a7a; }
-.date { display:inline-flex; gap:4px; align-items:center; font-size:12px; }
+/* Avatar sin edición (vista externa) */
+.avatar {
+  width: 96px;
+  height: 96px;
+  border: 3px solid rgba(255, 250, 243, 0.9);
+  box-shadow: 0 8px 24px rgba(170, 151, 151, 0.25);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    background: linear-gradient(135deg, #aa9797, #9a8787, #aa9797);
+    border-radius: 50%;
+    z-index: -1;
+    opacity: 0.3;
+    animation: pulse-ring 3s ease-in-out infinite;
+  }
+
+  img {
+    object-fit: cover;
+  }
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.5;
+  }
+}
+
+/* Información del usuario */
+.id {
+  flex: 1;
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #aa9797, #8b7777);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+  }
+
+  .email {
+    margin: 4px 0;
+    color: #94837c;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &::before {
+      content: '✉';
+      font-size: 14px;
+      opacity: 0.7;
+    }
+  }
+}
+
+/* ========== Métricas ========== */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.metric {
+  text-align: center;
+  background: linear-gradient(135deg,
+    rgba(255, 250, 243, 0.7),
+    rgba(243, 222, 217, 0.3)
+  );
+  border-radius: 14px;
+  padding: 12px 8px;
+  border: 1px solid rgba(170, 151, 151, 0.15);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+      rgba(170, 151, 151, 0.05),
+      transparent
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(170, 151, 151, 0.18);
+    border-color: rgba(170, 151, 151, 0.3);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  .v {
+    font-weight: 800;
+    font-size: 1.3rem;
+    background: linear-gradient(135deg, #aa9797, #8b7777);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+
+  .k {
+    color: #94837c;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 3px;
+    letter-spacing: 0.01em;
+  }
+}
+
+.stars {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 2px;
+
+  ion-icon {
+    font-size: 18px;
+    color: #d4a574;
+    filter: drop-shadow(0 1px 3px rgba(212, 165, 116, 0.3));
+  }
+}
+
+.rcount {
+  margin-left: 6px;
+  color: #94837c;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* ========== Tabs modernos (3 columnas) ========== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+  padding: 6px;
+  background: rgba(170, 151, 151, 0.06);
+  border-radius: 16px;
+
+  @media (max-width: 380px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  button {
+    padding: 12px 10px;
+    border: 1.5px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #94837c;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.01em;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.5);
+      color: #8b7777;
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    &.active {
+      background: linear-gradient(135deg,
+        rgba(170, 151, 151, 0.15),
+        rgba(243, 222, 217, 0.3)
+      );
+      border-color: rgba(170, 151, 151, 0.3);
+      color: #8b7777;
+      box-shadow: 0 4px 12px rgba(170, 151, 151, 0.15);
+    }
+  }
+}
+
+/* ========== Tab panes ========== */
+.tab-pane {
+  margin-top: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Lista de información */
+ion-list {
+  background: transparent;
+  padding: 0;
+
+  ion-item {
+    --background: rgba(255, 255, 255, 0.6);
+    --border-color: rgba(170, 151, 151, 0.15);
+    --padding-start: 16px;
+    --padding-end: 16px;
+    margin-bottom: 10px;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      --background: rgba(243, 222, 217, 0.4);
+      transform: translateX(4px);
+    }
+
+    ion-label {
+      h3 {
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #94837c;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+      }
+
+      p {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #2b2b2b;
+        margin: 0;
+      }
+    }
+  }
+}
+
+.muted {
+  text-align: center;
+  color: #94837c;
+  margin: 20px 0;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* ========== Libros (cards compactas) ========== */
+.books-list {
+  --inner-padding-start: 0;
+  --inner-padding-end: 0;
+  background: transparent;
+}
+
+ion-item[button] {
+  --background: rgba(255, 255, 255, 0.7);
+  --border-color: rgba(170, 151, 151, 0.15);
+  margin-bottom: 10px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(170, 151, 151, 0.08);
+  transition: all 0.25s ease;
+
+  &:hover {
+    --background: rgba(243, 222, 217, 0.3);
+    transform: translateX(4px);
+    box-shadow: 0 4px 16px rgba(170, 151, 151, 0.15);
+  }
+}
+
+.thumb {
+  width: 68px;
+  height: 96px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(170, 151, 151, 0.15);
+  border: 2px solid rgba(255, 250, 243, 0.8);
+
+  img {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  flex: 1;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ttl {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.3;
+  color: #2b2b2b;
+  flex: 1;
+}
+
+.author,
+.meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.muted {
+  color: #94837c;
+}
+
+.date {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94837c;
+  padding: 4px 10px;
+  background: rgba(170, 151, 151, 0.08);
+  border-radius: 999px;
+  border: 1px solid rgba(170, 151, 151, 0.15);
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+/* ========== Skeleton loader ========== */
+ion-skeleton-text {
+  border-radius: 16px;
+  background: linear-gradient(
+    90deg,
+    rgba(170, 151, 151, 0.08) 0%,
+    rgba(170, 151, 151, 0.18) 50%,
+    rgba(170, 151, 151, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Más compacto en pantallas pequeñas */
+@media (max-width: 360px) {
+  .thumb {
+    width: 60px;
+    height: 86px;
+  }
+
+  .ttl {
+    font-size: 15px;
+  }
+
+  .metrics {
+    gap: 8px;
+  }
+
+  .metric {
+    padding: 10px 6px;
+
+    .v {
+      font-size: 1.15rem;
+    }
+
+    .k {
+      font-size: 0.75rem;
+    }
+  }
+}

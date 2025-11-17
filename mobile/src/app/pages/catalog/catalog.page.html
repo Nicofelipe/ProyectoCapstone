@@ -1,0 +1,142 @@
+<ion-header>
+    <ion-toolbar color="primary">
+        <ion-buttons slot="start">
+            <ion-menu-button></ion-menu-button>
+        </ion-buttons>
+
+        <ion-title>Catálogo</ion-title>
+
+        <ion-buttons slot="end">
+            <ion-button routerLink="/search">
+                <ion-icon name="search-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="catalog-content">
+
+    <!-- Pull to refresh -->
+    <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+        <ion-refresher-content pullingText="Desliza para actualizar" refreshingSpinner="crescent"
+            refreshingText="Actualizando…">
+        </ion-refresher-content>
+    </ion-refresher>
+
+    <!-- Hero -->
+    <section class="catalog-hero">
+        <h1>Explora los libros disponibles</h1>
+    </section>
+
+    <!-- Filtros (chips) -->
+    <section class="filters" *ngIf="genres.length">
+        <div class="chips-scroll">
+            <button class="chip" [class.active]="activeGenre === null" (click)="selectGenre(null)">Todos</button>
+            <button class="chip" *ngFor="let g of genres" [class.active]="activeGenre === g" (click)="selectGenre(g)">
+                {{ g }}
+            </button>
+        </div>
+    </section>
+
+    <!-- Skeleton -->
+    <ng-container *ngIf="loading; else catalogLoaded">
+        <section class="catalog-grid">
+            <ion-card *ngFor="let _ of skeletonItems" class="book-card skeleton">
+                <div class="image-wrapper">
+                    <ion-skeleton-text animated class="book-image-skeleton"></ion-skeleton-text>
+                </div>
+                <ion-card-header>
+                    <ion-card-title><ion-skeleton-text animated style="width: 80%"></ion-skeleton-text></ion-card-title>
+                    <ion-card-subtitle><ion-skeleton-text animated
+                            style="width: 60%"></ion-skeleton-text></ion-card-subtitle>
+                </ion-card-header>
+                <ion-card-content>
+                    <div class="meta-row"><ion-skeleton-text animated style="width: 40%"></ion-skeleton-text></div>
+                    <div class="meta-row"><ion-skeleton-text animated style="width: 50%"></ion-skeleton-text></div>
+                </ion-card-content>
+            </ion-card>
+        </section>
+    </ng-container>
+
+    <!-- Contenido -->
+    <ng-template #catalogLoaded>
+        <section *ngIf="visibleBooks.length > 0; else emptyState" class="catalog-grid">
+            <ion-card class="book-card" *ngFor="let book of visibleBooks; trackBy: trackByBookId"
+                (click)="goToBook(book)">
+
+                <!-- Imagen con overlay skeleton -->
+                <div class="image-wrapper">
+                    <img [src]="cover(book)" alt="Portada de {{ book.titulo }}" loading="lazy" decoding="async"
+                        fetchpriority="low" (load)="onImageLoaded(book.id)" (error)="onImageError(book.id)"
+                        [class.is-loading]="!imageLoaded[book.id]" />
+                    <ion-skeleton-text *ngIf="!imageLoaded[book.id]" animated
+                        class="book-image-skeleton"></ion-skeleton-text>
+                </div>
+
+                <ion-card-header class="centered">
+                    <ion-card-title class="book-title">{{ book.titulo }}</ion-card-title>
+                    <ion-card-subtitle class="book-author">{{ book.autor || 'Autor desconocido' }}</ion-card-subtitle>
+                </ion-card-header>
+
+                <ion-card-content>
+                    <div class="chips-row">
+                        <span class="estado-chip" [ngClass]="estadoClass(book.estado)">
+                            <ion-icon name="ellipse"></ion-icon>
+                            <span>{{ book.estado || 'Sin estado' }}</span>
+                        </span>
+
+                        <span class="genre-chip" *ngIf="book.genero_nombre">
+                            {{ book.genero_nombre }}
+                        </span>
+                    </div>
+
+                    <div class="meta-row">
+                        <ion-icon name="calendar-clear-outline"></ion-icon>
+                        <span>{{ book.fecha_subida | date:'dd/MM/yyyy' }}</span>
+                    </div>
+
+                    <div class="meta-row owner-row" *ngIf="book.owner_nombre">
+                        <ion-icon name="person-circle-outline"></ion-icon>
+                        <span class="owner-name">{{ book.owner_nombre }}</span>
+                    </div>
+
+                    <!-- Rating centrado -->
+                    <div class="rating-wrapper" *ngIf="hasRating(book); else noRatingTpl">
+                        <div class="rating-stars">
+                            <ion-icon name="star" class="star-icon"></ion-icon>
+                            <span class="rating-value">{{ ratingValue(book) }}</span>
+                        </div>
+
+                        <div class="rating-count">
+                            {{ ratingCount(book) }}
+                            {{ ratingCount(book) === 1 ? 'valoración' : 'valoraciones' }}
+                        </div>
+                    </div>
+
+                    <ng-template #noRatingTpl>
+                        <div class="rating-wrapper empty">
+                            <ion-icon name="star-outline"></ion-icon>
+                            <span>Usuario sin calificaciones aún</span>
+                        </div>
+                    </ng-template>
+                </ion-card-content>
+            </ion-card>
+        </section>
+
+        <ng-template #emptyState>
+            <div class="empty-state">
+                <ion-icon name="book-outline"></ion-icon>
+                <h2>No hay libros disponibles</h2>
+                <p>Cuando otros usuarios publiquen, aparecerán aquí.</p>
+            </div>
+        </ng-template>
+
+        <ion-infinite-scroll threshold="150px" (ionInfinite)="loadMore($event)">
+            <ion-infinite-scroll-content loadingSpinner="crescent"
+                loadingText="Cargando más libros…"></ion-infinite-scroll-content>
+        </ion-infinite-scroll>
+    </ng-template>
+</ion-content>
+
+<link rel="preconnect" href="https://proyectocapstone-production.up.railway.app" crossorigin>
+<link rel="dns-prefetch" href="//proyectocapstone-production.up.railway.app">

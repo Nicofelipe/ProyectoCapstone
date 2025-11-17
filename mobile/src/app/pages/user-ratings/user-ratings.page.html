@@ -1,0 +1,90 @@
+<!-- src/app/pages/user-ratings/user-ratings.page.html -->
+<ion-header>
+    <ion-toolbar color="primary">
+        <ion-buttons slot="start">
+            <!-- Ajusta defaultHref según tu app: /home, /tabs/home, etc. -->
+            <ion-back-button defaultHref="/home"></ion-back-button>
+        </ion-buttons>
+        <ion-title>
+            Calificaciones
+            <ng-container *ngIf="userName"> de {{ userName }}</ng-container>
+        </ion-title>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ratings-content">
+    <!-- Loading -->
+    <ng-container *ngIf="loading; else loaded">
+        <ion-list>
+            <ion-item *ngFor="let s of starsArray(3)">
+                <ion-skeleton-text [animated]="true" style="width: 100%; height: 50px"></ion-skeleton-text>
+            </ion-item>
+        </ion-list>
+    </ng-container>
+
+    <ng-template #loaded>
+        <!-- Error -->
+        <ion-card *ngIf="error">
+            <ion-card-content>
+                <ion-text color="danger">{{ error }}</ion-text>
+            </ion-card-content>
+        </ion-card>
+
+        <ng-container *ngIf="!error">
+            <!-- Resumen promedio -->
+            <ion-card class="avg-card" *ngIf="total > 0">
+                <ion-card-content>
+                    <div class="avg-score">
+                        <div class="avg-number">
+                            {{ promedio | number : '1.1-1' }}
+                        </div>
+                        <div class="avg-stars">
+                            <ion-icon *ngFor="let s of starsArray()"
+                                [name]="s <= Math.round(promedio || 0) ? 'star' : 'star-outline'"></ion-icon>
+                        </div>
+                    </div>
+                    <div class="avg-count">
+                        Basado en {{ total }} opinión{{ total === 1 ? '' : 'es' }}
+                    </div>
+                </ion-card-content>
+            </ion-card>
+
+            <!-- Si no hay calificaciones -->
+            <ion-card *ngIf="total === 0">
+                <ion-card-content class="empty">
+                    <ion-icon name="star-outline" class="empty-icon"></ion-icon>
+                    <p>Este usuario aún no tiene calificaciones.</p>
+                </ion-card-content>
+            </ion-card>
+
+            <!-- Lista de calificaciones -->
+            <ion-list *ngIf="total > 0">
+                <ion-item *ngFor="let r of ratings">
+  <ion-avatar slot="start">
+    <ion-icon name="person-circle" class="avatar-icon"></ion-icon>
+  </ion-avatar>
+
+  <ion-label>
+    <!-- Nombre de la otra persona en el intercambio -->
+    <h2>{{ r.contraparte_nombre }}</h2>
+
+    <!-- Título del intercambio (opcional, pero queda bonito) -->
+    <p *ngIf="r.libro_titulo" class="book">{{ r.libro_titulo }}</p>
+
+    <div class="item-stars">
+      <ion-icon
+        *ngFor="let s of starsArray()"
+        [name]="s <= scoreOf(r) ? 'star' : 'star-outline'">
+      </ion-icon>
+      <span class="score">{{ scoreOf(r) }}/5</span>
+    </div>
+
+    <p *ngIf="r.comentario">{{ r.comentario }}</p>
+    <p class="date" *ngIf="r.fecha">{{ r.fecha | date : 'shortDate' }}</p>
+  </ion-label>
+</ion-item>
+
+            </ion-list>
+        </ng-container>
+    </ng-template>
+</ion-content>

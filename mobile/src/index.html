@@ -21,6 +21,12 @@
 
 <body>
   <app-root></app-root>
+
+  <!-- 👇 REGISTRA ionic/pwa-elements (necesario para pwa-camera-modal en web/PWA) -->
+  <script type="module">
+    import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@ionic/pwa-elements@latest/loader/index.es2017.js';
+    defineCustomElements(window);
+  </script>
 </body>
 
 </html>

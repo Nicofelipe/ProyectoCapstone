@@ -1,43 +1,362 @@
-/* Fondo del content */
+/* ========== Variables de Cambioteca ========== */
+:host {
+  --cambioteca-primary: #aa9797;
+  --cambioteca-primary-dark: #9a8787;
+  --cambioteca-primary-darker: #8b7777;
+  --cambioteca-text-medium: #94837c;
+  --cambioteca-pink: #f3ded9;
+  --cambioteca-cream: #fffaf3;
+  --cambioteca-bg: #f4f4f2;
+  --cambioteca-text: #2b2b2b;
+  --cambioteca-gold: #d4a574;
+}
+
+/* ========== Background del contenido ========== */
 .login-content {
-  --background: var(--app-bg);
+  --background: linear-gradient(135deg,
+      var(--cambioteca-bg) 0%,
+      color-mix(in srgb, var(--cambioteca-pink) 20%, var(--cambioteca-bg)) 50%,
+      color-mix(in srgb, var(--cambioteca-pink) 15%, var(--cambioteca-bg)) 100%);
 }
 
-/* 👇 Centrar el contenido REAL del ion-content */
+/* ========== Centrado vertical del contenido ========== */
 .login-content::part(scroll) {
-  min-height: 100vh;              /* ocupa toda la pantalla */
-  display: flex;                  /* flex para centrar */
-  align-items: center;            /* centro vertical */
-  justify-content: center;        /* centro horizontal */
-  padding: 16px;                  /* respirito lateral */
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
 }
 
-/* La tarjeta */
+/* ========== Tarjeta principal con glassmorphism ========== */
 .card {
   width: 100%;
-  max-width: 440px;               /* ajusta a gusto (420–480px) */
-  background: #fff;
+  max-width: 440px;
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.95),
+      rgba(243, 222, 217, 0.35));
+  backdrop-filter: blur(16px);
+  border-radius: 32px;
+  box-shadow: 0 16px 48px rgba(170, 151, 151, 0.25),
+    0 6px 16px rgba(43, 43, 43, 0.08);
+  border: 1px solid rgba(170, 151, 151, 0.3);
+  padding: 40px 32px;
+  animation: fadeInScale 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+
+  /* Decoración sutil de fondo */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle,
+        rgba(170, 151, 151, 0.08) 0%,
+        transparent 70%);
+    pointer-events: none;
+    animation: rotate 20s linear infinite;
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    text-align: center;
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg,
+        var(--cambioteca-primary),
+        var(--cambioteca-primary-darker));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    z-index: 1;
+  }
+
+  p {
+    margin: 0 0 28px;
+    text-align: center;
+    color: var(--cambioteca-text-medium);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== Formulario ========== */
+form {
+  position: relative;
+  z-index: 1;
+}
+
+/* ========== Items del formulario premium ========== */
+ion-item {
+  --background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.9),
+      rgba(243, 222, 217, 0.3));
+  --border-color: rgba(170, 151, 151, 0.25);
+  --padding-start: 18px;
+  --padding-end: 18px;
+  margin-bottom: 12px;
+  border-radius: 18px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 3px 12px rgba(170, 151, 151, 0.1);
+  border: 1.5px solid rgba(170, 151, 151, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 58px;
+
+  &::part(native) {
+    padding-inline-start: 18px;
+    padding-inline-end: 18px;
+  }
+
+  &.item-has-focus,
+  &.ion-focused {
+    --background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(243, 222, 217, 0.4));
+    --border-color: rgba(170, 151, 151, 0.5);
+    box-shadow: 0 6px 20px rgba(170, 151, 151, 0.22);
+    transform: translateY(-3px);
+  }
+
+  ion-icon[slot="start"] {
+    font-size: 22px;
+    margin-inline-end: 12px;
+    color: var(--cambioteca-primary);
+    filter: drop-shadow(0 2px 4px rgba(170, 151, 151, 0.15));
+    transition: all 0.3s ease;
+  }
+
+  &.ion-focused ion-icon[slot="start"] {
+    color: var(--cambioteca-primary-dark);
+    transform: scale(1.1);
+  }
+
+  ion-input {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--cambioteca-text);
+    --padding-start: 0;
+    --padding-end: 0;
+  }
+
+  ion-label {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--cambioteca-text-medium);
+  }
+}
+
+/* ========== Espaciado ========== */
+.mt {
+  margin-top: 16px;
+}
+
+/* ========== Notas de error mejoradas ========== */
+ion-note {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin: -8px 8px 12px;
+  padding: 10px 16px;
   border-radius: 14px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.08);
-  padding: 20px;
+  animation: slideIn 0.3s ease;
+
+  &[color="danger"] {
+    background: linear-gradient(135deg,
+        rgba(200, 100, 100, 0.14),
+        rgba(200, 100, 100, 0.09));
+    color: #a94442;
+    border: 1.5px solid rgba(169, 68, 66, 0.25);
+    box-shadow: 0 2px 8px rgba(200, 100, 100, 0.08);
+  }
 }
 
-.card h2 {
-  margin: 0 0 6px;
-  text-align: center;
-  color: var(--app-text);
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.card p {
-  margin: 0 0 16px;
-  text-align: center;
-  color: color-mix(in srgb, var(--app-text) 65%, #fff);
+/* ========== Botón principal premium ========== */
+ion-button[expand="block"] {
+  --border-radius: 999px;
+  --box-shadow: 0 8px 24px rgba(170, 151, 151, 0.3);
+  height: 56px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  margin-top: 24px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --color: var(--cambioteca-text) !important;
+  --color-activated: var(--cambioteca-text) !important;
+  color: var(--cambioteca-text) !important;
+  position: relative;
+  overflow: hidden;
+
+  &::part(native) {
+    background: linear-gradient(135deg,
+        var(--cambioteca-primary),
+        var(--cambioteca-primary-dark)) !important;
+    color: var(--cambioteca-text) !important;
+  }
+
+  /* Efecto de brillo al hover */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-4px);
+    --box-shadow: 0 12px 32px rgba(170, 151, 151, 0.4);
+
+    &::before {
+      width: 300px;
+      height: 300px;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(-2px) scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    transform: none;
+  }
 }
 
-.mt { margin-top: 12px; }
-
+/* ========== Hints / enlaces premium ========== */
 .hint {
-  margin-top: 14px;
+  margin-top: 20px;
   text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cambioteca-text-medium);
+  position: relative;
+  z-index: 1;
+
+  &:first-of-type {
+    margin-top: 24px;
+  }
+
+  a {
+    color: var(--cambioteca-primary-dark);
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: inline-block;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: linear-gradient(90deg,
+          var(--cambioteca-primary),
+          var(--cambioteca-primary-dark));
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
+      border-radius: 999px;
+    }
+
+    &:hover {
+      color: var(--cambioteca-primary-darker);
+      background: rgba(170, 151, 151, 0.12);
+      transform: translateY(-2px);
+
+      &::after {
+        transform: scaleX(1);
+      }
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
 }
-.hint a { color: var(--ion-color-primary); }
+
+/* ========== Focus accesible ========== */
+ion-input,
+button,
+a {
+  &:focus-visible {
+    outline: 3px solid rgba(170, 151, 151, 0.5);
+    outline-offset: 3px;
+    border-radius: 12px;
+  }
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 400px) {
+  .card {
+    padding: 32px 24px;
+    border-radius: 28px;
+
+    h2 {
+      font-size: 32px;
+    }
+  }
+
+  ion-button[expand="block"] {
+    height: 52px;
+    font-size: 17px;
+  }
+}
+
+/* ========== Loading state para el botón ========== */
+ion-button[expand="block"] {
+  ion-spinner {
+    --color: var(--cambioteca-text);
+  }
+}

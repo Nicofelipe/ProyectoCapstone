@@ -1,10 +1,9 @@
 // src/app/core/services/auth.service.ts
 import { Injectable } from '@angular/core';
-import { Router } from '@angular/router'; // 👈 agrega
+import { Router } from '@angular/router';
 import { Preferences } from '@capacitor/preferences';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
-import ApiService from '../services/api.service';
-
+import ApiService from './api.service'; // 👈 misma carpeta
 
 export interface MeUser {
   id: number;
@@ -21,12 +20,26 @@ export interface MeUser {
   direccion?: string;
   numeracion?: string;
   direccion_completa?: string;
-  es_admin?: boolean;           // 👈 NUEVO
-  avatar_url?: string | null;   // (lo manda tu login_view)
+  es_admin?: boolean;
+  avatar_url?: string | null;
 }
 export type User = MeUser;
 
-export interface LoginResponse { access: string; user: MeUser; }
+export interface LoginResponse {
+  access: string;
+  user: MeUser;
+}
+
+export interface UserRating {
+  id: number;
+  intercambio_id: number | null;
+  tipo: 'recibida' | 'enviada' | string;
+  estrellas: number | string;
+  comentario: string;
+  fecha: string | null;
+  libro_titulo: string;
+  contraparte_nombre: string;
+}
 
 export interface SummaryUserFromApi {
   id_usuario: number;
@@ -43,6 +56,7 @@ export interface SummaryUserFromApi {
   numeracion?: string | null;
   direccion_completa?: string | null;
 }
+
 export interface Summary {
   user: SummaryUserFromApi;
   metrics: { libros: number; intercambios: number; calificacion: number };
@@ -57,30 +71,47 @@ export class AuthService {
   private _user$ = new BehaviorSubject<MeUser | null>(null);
   user$ = this._user$.asObservable();
 
-  // 👇 cache en memoria para que el interceptor pueda leer sin await
+  // Cache en memoria del token para que el interceptor lo lea sin await
   private tokenCache: string | null = null;
 
-  constructor(private api: ApiService, private router: Router) { this.restore(); }
+  constructor(private api: ApiService, private router: Router) {
+    // Intenta restaurar aun si no configuraste APP_INITIALIZER
+    this.restore();
+  }
 
-  get user(): MeUser | null { return this._user$.value; }
-  get accessTokenSync(): string | null { return this.tokenCache; }
+  // Getters cómodos
+  get user(): MeUser | null {
+    return this._user$.value;
+  }
+  get accessTokenSync(): string | null {
+    return this.tokenCache;
+  }
 
-  async restoreSession() { await this.restore(); }
+  // Permite usarlo en APP_INITIALIZER
+  async restoreSession(): Promise<void> {
+    await this.restore();
+  }
 
-
-  private async restore() {
+  private async restore(): Promise<void> {
     const [{ value: token }, { value: userJson }] = await Promise.all([
       Preferences.get({ key: TOKEN_KEY }),
       Preferences.get({ key: USER_KEY }),
     ]);
-    this.tokenCache = token ?? null;                                  // 👈 cachea
+
+    this.tokenCache = token ?? null;
+
     if (token && userJson) {
-      try { this._user$.next(JSON.parse(userJson) as MeUser); }
-      catch { this._user$.next(null); }
+      try {
+        this._user$.next(JSON.parse(userJson) as MeUser);
+      } catch {
+        this._user$.next(null);
+      }
     } else {
       this._user$.next(null);
     }
   }
+
+  // ====== Auth básico ======
 
   async login(email: string, contrasena: string): Promise<LoginResponse> {
     const resp = await firstValueFrom(
@@ -93,56 +124,97 @@ export class AuthService {
     return resp;
   }
 
-  async registerFormData(fd: FormData) {
-    return await firstValueFrom(this.api.post<{ message: string; id: number }>('/api/auth/register/', fd));
-  }
-
-  async requestPasswordReset(email: string) {
-    return await firstValueFrom(this.api.post<{ message: string }>('/api/auth/forgot/', { email }));
-  }
-
-  async resetPassword(token: string, password: string, password2: string) {
-    return await firstValueFrom(this.api.post<{ message: string }>('/api/auth/reset/', { token, password, password2 }));
-  }
-
-  async logout() {
+  async logout(): Promise<void> {
     await Preferences.remove({ key: TOKEN_KEY });
     await Preferences.remove({ key: USER_KEY });
-    this.tokenCache = null;                                            // 👈 limpia cache
+    this.tokenCache = null;
     this._user$.next(null);
   }
 
-  // ✅ cierre de sesión global (backend invalida todos los tokens del usuario)
-  async logoutAll() {
+  // Cierre de sesión global (invalida tokens en servidor)
+  async logoutAll(): Promise<void> {
     try {
-      await firstValueFrom(this.api.post('/api/auth/logout-all/', {})); // el token va por header (interceptor)
+      await firstValueFrom(this.api.post('/api/auth/logout-all/', {}));
     } catch {
-      // si ya no es válido o hay 401/403, igual limpiamos local
+      // Si ya expiró o 401/403, igual continuamos
     } finally {
       await this.logout();
     }
   }
 
-  async forceLogout(reason?: string) {
+  // Útil para interceptores ante 401/invalidación
+  async forceLogout(reason?: string): Promise<void> {
     await this.logout();
-    // Opcional: muestra un toast con "Sesión expirada o cerrada en otro dispositivo"
     this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+    // Opcional: mostrar toast con reason
   }
 
-  async isLoggedIn() { return !!(await Preferences.get({ key: TOKEN_KEY })).value; }
+  async isLoggedIn(): Promise<boolean> {
+    return !!(await Preferences.get({ key: TOKEN_KEY })).value;
+  }
 
-  async setUserLocal(u: MeUser) {
+  async setUserLocal(u: MeUser): Promise<void> {
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(u) });
     this._user$.next(u);
   }
+
+  // ====== Flujos de registro/recuperación ======
+
+  async registerFormData(fd: FormData) {
+    return await firstValueFrom(
+      this.api.post<{ message: string; id: number }>('/api/auth/register/', fd)
+    );
+  }
+
+  async requestPasswordReset(email: string) {
+    return await firstValueFrom(
+      this.api.post<{ message: string }>('/api/auth/forgot/', { email })
+    );
+  }
+
+  async resetPassword(token: string, password: string, password2: string) {
+    return await firstValueFrom(
+      this.api.post<{ message: string }>('/api/auth/reset/', { token, password, password2 })
+    );
+  }
+
+  async changePassword(current: string, newPass: string) {
+    return await firstValueFrom(
+      this.api.post<{ message: string }>('/api/auth/change-password/', {
+        current,
+        new: newPass,
+      })
+    );
+  }
+
+  // ====== Perfil / Usuario ======
 
   async getUserSummary(id: number): Promise<Summary> {
     return await firstValueFrom(this.api.get<Summary>(`/api/users/${id}/summary/`));
   }
 
+  async getUserProfile(id: number) {
+    return await firstValueFrom(this.api.get<any>(`/api/users/${id}/profile/`));
+  }
+
+  async getUserBooks(id: number) {
+    return await firstValueFrom(this.api.get<any[]>(`/api/users/${id}/books/`));
+  }
+
+  async getUserIntercambios(id: number) {
+    return await firstValueFrom(this.api.get<any[]>(`/api/users/${id}/intercambios/`));
+  }
+
+  async getUserRatings(id: number): Promise<UserRating[]> {
+    return await firstValueFrom(
+      this.api.get<UserRating[]>(`/api/users/${id}/ratings/`)
+    );
+  }
 
   async updateMyProfile(id: number, data: Record<string, any>): Promise<Partial<MeUser>> {
-    const updated = await firstValueFrom(this.api.patch<any>(`/api/users/${id}/`, data));
+    const updated = await firstValueFrom(
+      this.api.patch<any>(`/api/users/${id}/`, data)
+    );
 
     const normalized: Partial<MeUser> = {
       id: updated.id_usuario ?? this.user?.id,
@@ -157,8 +229,9 @@ export class AuthService {
       telefono: updated.telefono ?? this.user?.telefono,
       direccion: updated.direccion ?? this.user?.direccion,
       numeracion: updated.numeracion ?? this.user?.numeracion,
-      direccion_completa: updated.direccion_completa
-        ?? `${updated.direccion ?? this.user?.direccion ?? ''} ${updated.numeracion ?? this.user?.numeracion ?? ''}`.trim(),
+      direccion_completa:
+        updated.direccion_completa ??
+        `${updated.direccion ?? this.user?.direccion ?? ''} ${updated.numeracion ?? this.user?.numeracion ?? ''}`.trim(),
     };
 
     const merged = { ...(this.user as any), ...normalized };
@@ -170,35 +243,16 @@ export class AuthService {
   async updateAvatar(id: number, file: File) {
     const fd = new FormData();
     fd.append('imagen_perfil', file);
+
     const updated = await firstValueFrom(
       this.api.patch<any>(`/api/users/${id}/avatar/`, fd)
     );
-    // Evita cache del mismo path en <img> si el storage reusa nombre
+
+    // Evita cache del <img> si el storage reusa nombre
     const rel = String(updated.imagen_perfil || '').replace(/^\//, '');
     const merged = { ...(this.user as any), imagen_perfil: rel };
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(merged) });
     this._user$.next(merged);
     return updated;
   }
-
-  async getUserProfile(id: number) {
-    return await firstValueFrom(this.api.get<any>(`/api/users/${id}/profile/`));
-  }
-
-  async getUserBooks(id: number) {                      // 👈 NUEVO
-    return await firstValueFrom(this.api.get<any[]>(`/api/users/${id}/books/`));
-  }
-
-  async getUserIntercambios(id: number) {              // 👈 NUEVO
-    return await firstValueFrom(this.api.get<any[]>(`/api/users/${id}/intercambios/`));
-  }
-
-  async changePassword(current: string, newPass: string) {
-    return await firstValueFrom(
-      this.api.post<{ message: string }>('/api/auth/change-password/', {
-        current, new: newPass
-      })
-    );
-  }
-
 }

@@ -1,13 +1,14 @@
 // This file can be replaced during build by using the `fileReplacements` array.
 // `ng build` replaces `environment.ts` with `environment.prod.ts`.
 // The list of file replacements can be found in `angular.json`.
-/*
+
+
 export const environment = {
   production: false,
   apiUrl: 'http://127.0.0.1:8000/',  
   mediaBase: 'http://127.0.0.1:8000//media/', 
   googleMaps: {
-    apiKey: 'AIzaSyC7x_K8ReP0aFxJ54GrHxNXPfk0laL-HuE',
+    apiKey: '',
     defaultCenter: { lat: -33.4489, lng: -70.6693 }, // Santiago (ajusta)
     defaultZoom: 12
   },
@@ -27,8 +28,8 @@ export const environment = {
   },
 ],
 };
+/*
 
-*/
 export const environment = {
   production: false,
   apiUrl: 'https://proyectocapstone-production.up.railway.app', // backend base
@@ -42,7 +43,9 @@ export const environment = {
     { id: 1, name: 'Cambioteca La Farfana', address: 'Diez Puma 95, Maipú, RM', position: { lat: -33.491339413179055, lng: -70.77278467519258 } },
     { id: 2, name: 'Cambioteca El Abrazo', address: 'Pioneros Evangelistas 3031, Maipú, RM', position: { lat: -33.52873470047291, lng: -70.7943495751906 } },
   ],
-};
+}
+
+*/
 
 /*
  * For easier debugging in development mode, you can import the following file

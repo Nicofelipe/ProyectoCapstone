@@ -1,0 +1,331 @@
+/* ===== User Ratings Premium - Cambioteca ===== */
+
+.ratings-content {
+    --background: linear-gradient(180deg,
+            #f4f4f2 0%,
+            color-mix(in srgb, #f3ded9 10%, #f4f4f2) 100%);
+}
+
+/* ===== Card de promedio ===== */
+.avg-card {
+    margin: 20px 16px 16px;
+    border-radius: 24px;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.95),
+            rgba(243, 222, 217, 0.25));
+    backdrop-filter: blur(10px);
+    box-shadow:
+        0 8px 32px rgba(170, 151, 151, 0.15),
+        0 2px 8px rgba(43, 43, 43, 0.04);
+    border: 1px solid rgba(170, 151, 151, 0.2);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+        background: linear-gradient(90deg,
+                transparent,
+                #d4a574,
+                transparent);
+        border-radius: 999px;
+    }
+
+    ion-card-content {
+        padding: 28px 20px 24px;
+    }
+}
+
+.avg-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+
+    .avg-number {
+        font-size: 3.2rem;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #d4a574, #aa9797);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-shadow: 0 2px 8px rgba(212, 165, 116, 0.2);
+    }
+
+    .avg-stars {
+        display: flex;
+        gap: 4px;
+
+        ion-icon {
+            font-size: 1.6rem;
+            color: #d4a574;
+            filter: drop-shadow(0 2px 4px rgba(212, 165, 116, 0.3));
+            transition: transform 0.2s ease;
+
+            &:hover {
+                transform: scale(1.1);
+            }
+        }
+    }
+}
+
+.avg-count {
+    text-align: center;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #94837c;
+    padding: 10px 16px;
+    background: rgba(170, 151, 151, 0.08);
+    border-radius: 999px;
+    display: inline-block;
+    margin: 0 auto;
+    width: fit-content;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* ===== Card vacío ===== */
+ion-card {
+    margin: 20px 16px 16px;
+    border-radius: 24px;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.95),
+            rgba(243, 222, 217, 0.25));
+    backdrop-filter: blur(10px);
+    box-shadow:
+        0 8px 32px rgba(170, 151, 151, 0.15),
+        0 2px 8px rgba(43, 43, 43, 0.04);
+    border: 1px solid rgba(170, 151, 151, 0.2);
+}
+
+.empty {
+    text-align: center;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+
+    .empty-icon {
+        font-size: 4rem;
+        color: #d4a574;
+        opacity: 0.5;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 4px 12px rgba(212, 165, 116, 0.2));
+        animation: float 3s ease-in-out infinite;
+    }
+
+    p {
+        margin: 0;
+        color: #94837c;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+/* ===== Card de error ===== */
+ion-card ion-card-content ion-text[color="danger"] {
+    display: block;
+    padding: 16px;
+    background: linear-gradient(135deg,
+            rgba(239, 68, 68, 0.08),
+            rgba(239, 68, 68, 0.04));
+    border-radius: 12px;
+    border-left: 3px solid rgba(239, 68, 68, 0.5);
+    color: #b91c1c;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* ===== Lista de calificaciones ===== */
+ion-list {
+    background: transparent;
+    padding: 12px 16px;
+
+    ion-item {
+        --background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.95),
+                rgba(243, 222, 217, 0.2));
+        --border-color: rgba(170, 151, 151, 0.15);
+        --padding-start: 16px;
+        --padding-end: 16px;
+        --inner-padding-top: 16px;
+        --inner-padding-bottom: 16px;
+        margin-bottom: 14px;
+        border-radius: 18px;
+        box-shadow:
+            0 4px 16px rgba(170, 151, 151, 0.1),
+            0 1px 4px rgba(43, 43, 43, 0.04);
+        border: 1px solid rgba(170, 151, 151, 0.15);
+        transition: all 0.25s ease;
+        backdrop-filter: blur(10px);
+
+        &:hover {
+            transform: translateX(4px);
+            box-shadow:
+                0 8px 24px rgba(170, 151, 151, 0.15),
+                0 2px 8px rgba(43, 43, 43, 0.08);
+            border-color: rgba(170, 151, 151, 0.25);
+        }
+    }
+}
+
+/* ===== Avatar ===== */
+ion-avatar {
+    width: 48px;
+    height: 48px;
+    border: 2px solid rgba(255, 250, 243, 0.9);
+    box-shadow: 0 4px 12px rgba(170, 151, 151, 0.2);
+    background: linear-gradient(135deg, #aa9797, #9a8787);
+
+    .avatar-icon {
+        font-size: 48px;
+        color: #ffffff;
+    }
+}
+
+/* ===== Label del item ===== */
+ion-label {
+    h2 {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #2b2b2b;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
+    }
+
+    p {
+        font-size: 0.88rem;
+        color: #4a4a4a;
+        line-height: 1.5;
+        margin: 8px 0 6px;
+        font-weight: 500;
+    }
+}
+
+/* ===== Estrellas del item ===== */
+.item-stars {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: linear-gradient(135deg,
+            rgba(212, 165, 116, 0.1),
+            rgba(212, 165, 116, 0.05));
+    border-radius: 999px;
+    width: fit-content;
+    border: 1px solid rgba(212, 165, 116, 0.2);
+
+    ion-icon {
+        font-size: 1.15rem;
+        color: #d4a574;
+        filter: drop-shadow(0 1px 2px rgba(212, 165, 116, 0.3));
+    }
+
+    .score {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #b8884a;
+        margin-left: 6px;
+    }
+}
+
+/* ===== Fecha ===== */
+.date {
+    font-size: 0.76rem;
+    color: #94837c;
+    font-weight: 600;
+    padding: 4px 10px;
+    background: rgba(170, 151, 151, 0.08);
+    border-radius: 999px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* ===== Skeleton loading ===== */
+ion-skeleton-text {
+    border-radius: 18px;
+    background: linear-gradient(90deg,
+            rgba(170, 151, 151, 0.08) 0%,
+            rgba(170, 151, 151, 0.18) 50%,
+            rgba(170, 151, 151, 0.08) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+    .avg-score {
+        flex-direction: column;
+        gap: 12px;
+
+        .avg-number {
+            font-size: 2.8rem;
+        }
+
+        .avg-stars ion-icon {
+            font-size: 1.4rem;
+        }
+    }
+
+    .avg-count {
+        font-size: 0.85rem;
+    }
+
+    ion-avatar {
+        width: 44px;
+        height: 44px;
+
+        .avatar-icon {
+            font-size: 44px;
+        }
+    }
+
+    ion-label h2 {
+        font-size: 0.95rem;
+    }
+
+    ion-label p {
+        font-size: 0.84rem;
+    }
+}
+
+/* ===== Accesibilidad ===== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

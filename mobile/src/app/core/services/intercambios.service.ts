@@ -1,7 +1,8 @@
+
 // src/app/core/services/intercambios.service.ts
 import { HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { BehaviorSubject, map, Observable } from 'rxjs';
 import ApiService from './api.service';
 
 export interface SolicitudEntrante {
@@ -31,6 +32,9 @@ type SolicitudEnviadaDTO = {
 export class IntercambiosService {
   constructor(private api: ApiService) { }
 
+  private _hasNewGlobalRequests = new BehaviorSubject<boolean>(false);
+  hasNewGlobalRequests$ = this._hasNewGlobalRequests.asObservable();
+
   // === Solicitudes (ofertas 1..3 por libro deseado) ===
   crearSolicitud(payload: {
     id_usuario_solicitante: number;
@@ -47,6 +51,37 @@ export class IntercambiosService {
     id_libros_ofrecidos: number[];
   }) {
     return this.crearSolicitud(payload);
+  }
+
+
+  refreshGlobalRequestsBadge(userId: number) {
+    const params = new HttpParams().set('user_id', String(userId));
+
+    this.api
+      .get<{ has_new: boolean; count: number }>('/api/solicitudes/resumen/', { params })
+      .subscribe({
+        next: (res) => {
+          this._hasNewGlobalRequests.next(!!res?.has_new);
+        },
+        error: (err) => {
+          console.error('resumen_solicitudes failed', err);
+        },
+      });
+  }
+
+  // 👇 Marca todas las solicitudes recibidas como "vistas" (se llama al entrar a Requests)
+  markAllRequestsAsSeen(userId: number) {
+    this.api
+      .post('/api/solicitudes/marcar-listado-visto/', { user_id: userId })
+      .subscribe({
+        next: () => {
+          // una vez que entro a la pantalla, apago el puntito rojo
+          this._hasNewGlobalRequests.next(false);
+        },
+        error: (err) => {
+          console.error('marcar_listado_solicitudes_visto failed', err);
+        },
+      });
   }
 
   aceptarSolicitud(solicitudId: number, userId: number, id_libro_aceptado: number) {
@@ -157,13 +192,37 @@ export class IntercambiosService {
   }
 
   // === Coordinación del encuentro
-  proponerEncuentro(intercambioId: number, userId: number, lugar: string, fecha: string) {
+  proponerEncuentroPredef(intercambioId: number, userId: number, punto_id: number, fechaISO: string) {
     return this.api.patch(`/api/intercambios/${intercambioId}/proponer/`, {
       user_id: userId,
-      lugar,
-      fecha, // YYYY-MM-DD
+      metodo: 'PREDEF',
+      punto_id,
+      fecha: fechaISO, // ISO 8601 (p.ej. 2025-11-12T15:30:00-03:00)
     });
   }
+
+  proponerEncuentroManual(intercambioId: number, userId: number, direccion: string, fechaISO: string, lat?: number, lon?: number) {
+    return this.api.patch(`/api/intercambios/${intercambioId}/proponer/`, {
+      user_id: userId,
+      metodo: 'MANUAL',
+      lugar: direccion,
+      fecha: fechaISO,
+      lat, lon,
+    });
+  }
+
+  proponerEncuentro(
+    intercambioId: number,
+    userId: number,
+    lugar: string,
+    fechaISO: string,
+    lat?: number,
+    lon?: number,
+  ) {
+    // Por defecto usamos el flujo MANUAL (dirección libre + coords opcionales)
+    return this.proponerEncuentroManual(intercambioId, userId, lugar, fechaISO, lat, lon);
+  }
+
 
   confirmarEncuentro(intercambioId: number, userId: number, confirmar: boolean) {
     return this.api.patch(`/api/intercambios/${intercambioId}/confirmar/`, {
@@ -177,7 +236,7 @@ export class IntercambiosService {
     return this.api.post(`/api/intercambios/${intercambioId}/codigo/`, { user_id: userId, codigo });
   }
 
-  calificar(intercambioId: number, userId: number, puntuacion: number, comentario = ''): Observable<{ok: boolean}> {
+  calificar(intercambioId: number, userId: number, puntuacion: number, comentario = ''): Observable<{ ok: boolean }> {
     return this.api.post(`/api/intercambios/${intercambioId}/calificar/`, {
       user_id: userId,
       puntuacion,
@@ -197,5 +256,8 @@ export class IntercambiosService {
     return this.api.post(`/api/intercambios/${intercambioId}/cancelar/`, { user_id: userId });
   }
 
-  
+  getPropuestaActual(intercambioId: number): Observable<any> {
+    return this.api.get(`/api/intercambios/${intercambioId}/propuesta/`);
+  }
+
 }

@@ -63,7 +63,26 @@ first_by_order_sq = (ImagenLibro.objects
     .values_list('url_imagen', flat=True)[:1])
 
 
+# Libros que el usuario YA pidió como libro_deseado
+def _exclude_already_requested_by_user(qs, user_id_raw):
+    """
+    Si viene user_id, excluye libros que ese usuario YA solicitó
+    como libro_deseado en solicitudes Pendiente / Aceptada.
+    Así al usuario no le vuelven a aparecer en el home/búsqueda
+    libros por los que ya tiene una solicitud saliente.
+    """
+    try:
+        uid = int(user_id_raw)
+    except (TypeError, ValueError):
+        return qs  # si viene basura, no tocamos el queryset
 
+    si_sub = SolicitudIntercambio.objects.filter(
+        id_usuario_solicitante_id=uid,
+        estado__in=[SOLICITUD_ESTADO["PENDIENTE"], SOLICITUD_ESTADO["ACEPTADA"]],
+        id_libro_deseado_id=OuterRef('pk'),
+    )
+
+    return qs.annotate(_ya_pedido=Exists(si_sub)).filter(_ya_pedido=False)
 
 def media_abs(request, rel: str | None = None) -> str:
     """
@@ -123,20 +142,24 @@ def _save_book_image(file_obj) -> str:
 # =========================
 
 # Intercambios activos (Pendiente/Aceptado) donde participa el libro (cualquiera de los roles)
+# Intercambios activos (Pendiente/Aceptado) donde participa el libro (cualquiera de los roles)
 intercambio_activo_ix = Exists(
     Intercambio.objects.filter(
         Q(id_libro_ofrecido_aceptado=OuterRef('pk')) |
         Q(id_solicitud__id_libro_deseado=OuterRef('pk'))
-    ).filter(estado_intercambio__in=['Pendiente', 'Aceptado'])
+    ).filter(
+        Q(estado_intercambio__iexact=INTERCAMBIO_ESTADO["PENDIENTE"]) |
+        Q(estado_intercambio__iexact=INTERCAMBIO_ESTADO["ACEPTADO"])
+    )
 )
 
 # Pendiente SALIENTE: el dueño ofreció este libro en una solicitud PENDIENTE
-# (NO cuenta si el libro sólo tiene pendientes ENTRANTES como id_libro_deseado)
 pendiente_saliente_ix = Exists(
     SolicitudOferta.objects.filter(
         id_libro_ofrecido_id=OuterRef('pk'),
-        id_solicitud__estado='Pendiente',
-        id_solicitud__id_usuario_solicitante_id=OuterRef('id_usuario_id')
+        id_solicitud__id_usuario_solicitante_id=OuterRef('id_usuario_id'),
+    ).filter(
+        id_solicitud__estado__iexact=SOLICITUD_ESTADO["PENDIENTE"]
     )
 )
 
@@ -193,8 +216,17 @@ class LibroViewSet(viewsets.ReadOnlyModelViewSet):
             .filter(disponible=True, en_negociacion=False)
             .order_by('-fecha_subida', '-id_libro')[:10]
         )
+
+        # ❌ ELIMINAR / COMENTAR ESTE BLOQUE:
+        # user_id_raw = request.query_params.get("user_id")
+        # if user_id_raw:
+        #     qs = _exclude_already_requested_by_user(qs, user_id_raw)
+
+        qs = qs[:10]
+
         data = LibroSerializer(qs, many=True, context={'request': request}).data
         return Response(data)
+
 
     @action(detail=False, methods=['get'])
     def populares(self, request):
@@ -253,17 +285,11 @@ class LibroViewSet(viewsets.ReadOnlyModelViewSet):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def libros_por_genero(request):
-    """
-    Devuelve los últimos 20 libros de un género específico que 
-    estén disponibles y no en negociación.
-    """
     try:
         genero_id = int(request.query_params.get("id_genero"))
     except (TypeError, ValueError):
         return Response({"detail": "Falta id_genero válido."}, status=400)
 
-    # Reutilizamos la misma lógica de 'latest' para 'en_negociacion'
-    # para asegurar que solo mostramos libros "public_disponible"
     qs = (
         Libro.objects
         .select_related('id_usuario', 'id_genero')
@@ -278,14 +304,23 @@ def libros_por_genero(request):
         .filter(
             id_genero_id=genero_id,
             disponible=True,
-            en_negociacion=False  # ¡Clave! Solo disponibles de verdad
+            en_negociacion=False
         )
-        .order_by('-fecha_subida', '-id_libro')[:20] # Limitamos a 20
+        .order_by('-fecha_subida', '-id_libro')[:20]
     )
-    
-    # Pasamos el 'request' al contexto para que LibroSerializer construya las URLs
+
+    # ❌ ELIMINAR / COMENTAR ESTO:
+    # user_id_raw = request.query_params.get("user_id")
+    # if user_id_raw:
+    #     qs = _exclude_already_requested_by_user(qs, user_id_raw)
+    #
+    # qs = qs[:20]
+
+    qs = qs[:20]  # solo dejamos el límite
+
     data = LibroSerializer(qs, many=True, context={'request': request}).data
     return Response(data)
+
 
 
 @api_view(["GET"])
@@ -293,6 +328,8 @@ def libros_por_genero(request):
 def catalog_generos(request):
     qs = Genero.objects.all().order_by("nombre")
     return Response(GeneroSerializer(qs, many=True).data)
+
+
 
 
 # =========================
@@ -534,57 +571,53 @@ def my_books(request):
     if not user_id:
         return Response({"detail": "Falta user_id"}, status=400)
 
+    # --- NUEVO: reusa flags de negociación para anotar ---
+    qs_base = (Libro.objects
+               .filter(id_usuario_id=user_id)
+               .select_related("id_genero", "id_usuario")
+               .annotate(_ix=intercambio_activo_ix, _sal=pendiente_saliente_ix)
+               .annotate(
+                   en_negociacion=Case(
+                       When(Q(_ix=True) | Q(_sal=True), then=Value(True)),
+                       default=Value(False),
+                       output_field=BooleanField(),
+                   )
+               ))
+
+    # Portada/primera imagen
     portada_sq = (ImagenLibro.objects
                   .filter(id_libro=OuterRef("pk"), is_portada=True)
                   .order_by("id_imagen").values_list("url_imagen", flat=True)[:1])
-
     first_by_order_sq = (ImagenLibro.objects
                          .filter(id_libro=OuterRef("pk"))
-                         .order_by("orden", "id_imagen").values_list("url_imagen", flat=True)[:1])
+                         .order_by("orden","id_imagen").values_list("url_imagen", flat=True)[:1])
 
-    has_si = Exists(SolicitudIntercambio.objects.filter(id_libro_deseado=OuterRef("pk")))
-    has_ix_any = Exists(
-        Intercambio.objects.filter(
-            Q(id_libro_ofrecido_aceptado=OuterRef("pk")) |
-            Q(id_solicitud__id_libro_deseado=OuterRef("pk"))
-        )
-    )
-
-    max_ix_acc_sq = (Intercambio.objects
-                     .filter(id_libro_ofrecido_aceptado=OuterRef("pk"))
-                     .values("id_libro_ofrecido_aceptado")
-                     .annotate(m=Max("id_intercambio")).values("m")[:1])
-
-    max_ix_des_sq = (Intercambio.objects
-                     .filter(id_solicitud__id_libro_deseado=OuterRef("pk"))
-                     .values("id_solicitud__id_libro_deseado")
-                     .annotate(m=Max("id_intercambio")).values("m")[:1])
-
-    max_si_sq = (SolicitudIntercambio.objects
-                 .filter(id_libro_deseado=OuterRef("pk"))
-                 .values("id_libro_deseado")
-                 .annotate(m=Max("id_solicitud")).values("m")[:1])
-
-    seen_sq = (LibroSolicitudesVistas.objects
-               .filter(id_usuario_id=user_id, id_libro=OuterRef("pk"))
-               .values("ultimo_visto_id_intercambio")[:1])
-
-    qs = (Libro.objects
-          .filter(id_usuario_id=user_id)
+    qs = (qs_base
           .annotate(first_image=Coalesce(Subquery(portada_sq), Subquery(first_by_order_sq)))
-          .annotate(has_si=has_si, has_ix=has_ix_any)
-          .annotate(max_ix_acc=Coalesce(Subquery(max_ix_acc_sq), Value(0)))
-          .annotate(max_ix_des=Coalesce(Subquery(max_ix_des_sq), Value(0)))
-          .annotate(max_si=Coalesce(Subquery(max_si_sq), Value(0)))
-          .annotate(max_activity_id=Greatest(F("max_ix_acc"), F("max_ix_des"), F("max_si")))
-          .annotate(last_seen=Coalesce(Subquery(seen_sq), Value(0)))
           .order_by("-fecha_subida", "-id_libro"))
 
+    # Comuna para todos
     from core.models import Usuario
     u = Usuario.objects.filter(pk=user_id).select_related("comuna").first()
     comuna_nombre = getattr(getattr(u, "comuna", None), "nombre", None)
 
+    # --- NUEVO: sets para estados de intercambio por libro ---
     book_ids = list(qs.values_list("id_libro", flat=True))
+
+    accepted_acc = set(
+        Intercambio.objects.filter(
+            estado_intercambio="Aceptado",
+            id_libro_ofrecido_aceptado_id__in=book_ids
+        ).values_list("id_libro_ofrecido_aceptado_id", flat=True)
+    )
+    accepted_des = set(
+        Intercambio.objects.filter(
+            estado_intercambio="Aceptado",
+            id_solicitud__id_libro_deseado_id__in=book_ids
+        ).values_list("id_solicitud__id_libro_deseado_id", flat=True)
+    )
+    accepted_any = accepted_acc | accepted_des
+
     completed_acc = set(
         Intercambio.objects.filter(
             estado_intercambio="Completado",
@@ -599,6 +632,38 @@ def my_books(request):
     )
     completed_any = completed_acc | completed_des
 
+    # Vistos/novedades (igual que tenías)
+    has_si = Exists(SolicitudIntercambio.objects.filter(id_libro_deseado=OuterRef("pk")))
+    has_ix_any = Exists(
+        Intercambio.objects.filter(
+            Q(id_libro_ofrecido_aceptado=OuterRef("pk")) |
+            Q(id_solicitud__id_libro_deseado=OuterRef("pk"))
+        )
+    )
+    max_ix_acc_sq = (Intercambio.objects
+                     .filter(id_libro_ofrecido_aceptado=OuterRef("pk"))
+                     .values("id_libro_ofrecido_aceptado")
+                     .annotate(m=Max("id_intercambio")).values("m")[:1])
+    max_ix_des_sq = (Intercambio.objects
+                     .filter(id_solicitud__id_libro_deseado=OuterRef("pk"))
+                     .values("id_solicitud__id_libro_deseado")
+                     .annotate(m=Max("id_intercambio")).values("m")[:1])
+    max_si_sq = (SolicitudIntercambio.objects
+                 .filter(id_libro_deseado=OuterRef("pk"))
+                 .values("id_libro_deseado")
+                 .annotate(m=Max("id_solicitud")).values("m")[:1])
+    seen_sq = (LibroSolicitudesVistas.objects
+               .filter(id_usuario_id=user_id, id_libro=OuterRef("pk"))
+               .values("ultimo_visto_id_intercambio")[:1])
+
+    qs = (qs
+          .annotate(has_si=has_si, has_ix=has_ix_any)
+          .annotate(max_ix_acc=Coalesce(Subquery(max_ix_acc_sq), Value(0)))
+          .annotate(max_ix_des=Coalesce(Subquery(max_ix_des_sq), Value(0)))
+          .annotate(max_si=Coalesce(Subquery(max_si_sq), Value(0)))
+          .annotate(max_activity_id=Greatest(F("max_ix_acc"), F("max_ix_des"), F("max_si")))
+          .annotate(last_seen=Coalesce(Subquery(seen_sq), Value(0))))
+
     data = []
     for b in qs:
         img_rel = (b.first_image or "").replace("\\", "/")
@@ -607,11 +672,19 @@ def my_books(request):
         locked = sr in ('BAJA', 'COMPLETADO')
         editable = bool(b.disponible) and not locked and (b.id_libro not in completed_any)
 
+        # --- NUEVO: estado_intercambio para el chip del front ---
+        if b.id_libro in completed_any or sr == 'COMPLETADO':
+            ix_state = "Completado"
+        elif b.id_libro in accepted_any:
+            ix_state = "Aceptado"
+        else:
+            ix_state = None
+
         data.append({
             "id": b.id_libro,
             "titulo": b.titulo,
             "autor": b.autor,
-            "estado": b.estado,
+            "estado": b.estado,  # ← condición del libro (como nuevo, etc.) SIEMPRE visible
             "descripcion": b.descripcion,
             "editorial": b.editorial,
             "genero_nombre": getattr(getattr(b, "id_genero", None), "nombre", None),
@@ -624,8 +697,13 @@ def my_books(request):
             "comuna_nombre": comuna_nombre,
             "editable": editable,
             "status_reason": getattr(b, "status_reason", None),
+
+            # --- NUEVO: campos para tu UI ---
+            "en_negociacion": bool(getattr(b, "en_negociacion", False)),
+            "estado_intercambio": ix_state,   # <- el que leerá el chip
         })
     return Response(data)
+
 
 
 @api_view(["GET"])
@@ -1370,14 +1448,20 @@ def lista_conversaciones(request, user_id: int):
       other_u.imagen_perfil                    AS imagen_perfil,
       c.titulo                                 AS titulo_chat,
       i.id_intercambio                         AS id_intercambio,
+      i.estado_intercambio                     AS estado_intercambio,   -- 👈 NUEVO
+      si.estado                                AS estado_solicitud,     -- 👈 OPCIONAL (backup)
       lo.titulo                                AS libro_ofrecido_titulo,
       ls.titulo                                AS libro_solicitado_titulo,
-      GREATEST(COALESCE(c.ultimo_id_mensaje,0) - COALESCE(me.ultimo_visto_id_mensaje,0), 0) AS unread_count
+      GREATEST(
+        COALESCE(c.ultimo_id_mensaje,0)
+        - COALESCE(me.ultimo_visto_id_mensaje,0),
+        0
+      ) AS unread_count
     FROM conversacion c
     JOIN conversacion_participante me
       ON me.id_conversacion = c.id_conversacion
      AND me.id_usuario      = %s
-     AND me.archivado       = 0
+     AND me.archivado       = 0          -- 👈 sigue filtrando sólo no archivados “manuales”
     LEFT JOIN conversacion_participante other_p
       ON other_p.id_conversacion = c.id_conversacion
      AND other_p.id_usuario     <> %s
@@ -1404,6 +1488,8 @@ def lista_conversaciones(request, user_id: int):
     data = []
     for r in raw:
         nombre = r["nombre_usuario"] or r["nombres"] or None
+
+        # Determinar “mi libro” y “del otro” según el rol
         if (r.get("my_role") or "").lower() == "solicitante":
             my_book = r.get("libro_ofrecido_titulo")
             other_book = r.get("libro_solicitado_titulo")
@@ -1413,6 +1499,11 @@ def lista_conversaciones(request, user_id: int):
 
         avatar_rel = r["imagen_perfil"] or "avatars/avatardefecto.jpg"
         display_title = nombre or r["titulo_chat"] or "Conversación"
+
+        # 👇 NUEVO: estado unificado (prioriza el del Intercambio)
+        estado_inter = (r.get("estado_intercambio") or "").strip()
+        estado_sol = (r.get("estado_solicitud") or "").strip()
+        estado_unificado = estado_inter or estado_sol  # si no hay intercambio, usa el de la solicitud
 
         data.append({
             "id_conversacion": r["id_conversacion"],
@@ -1430,6 +1521,9 @@ def lista_conversaciones(request, user_id: int):
             "my_book_title": my_book,
             "counterpart_book_title": other_book,
             "unread_count": r["unread_count"] or 0,
+
+            # 👇 NUEVO: lo que leerá el front
+            "intercambio_estado": estado_unificado,
         })
     return Response(data)
 
@@ -1727,17 +1821,20 @@ def catalogo_completo(request):
                 output_field=BooleanField(),
             )
         )
-        # Añadimos las calificaciones
         .annotate(owner_rating_avg=Coalesce(Subquery(avg_sq), Value(None)))
         .annotate(owner_rating_count=Coalesce(Subquery(cnt_sq), Value(0)))
         .filter(
             disponible=True,
-            en_negociacion=False # ¡Clave! Solo disponibles de verdad
+            en_negociacion=False
         )
-        .order_by('-fecha_subida', '-id_libro') # Ordenados por más nuevo
+        .order_by('-fecha_subida', '-id_libro')
     )
-    
-    # Usamos el mismo LibroSerializer, que ya sabe manejar el 'request'
+
+    # ❌ ELIMINAR / COMENTAR ESTO:
+    # user_id_raw = request.query_params.get("user_id")
+    # if user_id_raw:
+    #     qs = _exclude_already_requested_by_user(qs, user_id_raw)
+
     data = LibroSerializer(qs, many=True, context={'request': request}).data
     return Response(data)
 
@@ -1980,7 +2077,69 @@ def listar_solicitudes_recibidas(request):
     # --- FIN DE OPTIMIZACIÓN ---
 
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def resumen_solicitudes(request):
+    """
+    GET /api/solicitudes/resumen/?user_id=123
 
+    Devuelve si el usuario (RECEPTOR) tiene solicitudes nuevas
+    que aún no ha visto en el listado de "Solicitudes recibidas".
+    """
+    user_id = request.query_params.get("user_id")
+    if not user_id:
+        return Response({"detail": "Falta user_id"}, status=400)
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return Response({"detail": "user_id inválido."}, status=400)
+
+    qs = SolicitudIntercambio.objects.filter(
+        id_usuario_receptor_id=user_id,
+        estado__in=[SOLICITUD_ESTADO["PENDIENTE"], SOLICITUD_ESTADO["ACEPTADA"]],
+        visto_por_receptor=False,
+    )
+
+    count = qs.count()
+    return Response({
+        "has_new": count > 0,
+        "count": count,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def marcar_listado_solicitudes_visto(request):
+    """
+    POST /api/solicitudes/marcar-listado-visto/
+    Body JSON: { "user_id": 123 }
+
+    Marca TODAS las solicitudes recibidas (Pendiente/Aceptada) como vistas
+    por el receptor. Lo llamas cuando el usuario entra a la página de
+    "Solicitudes recibidas".
+    """
+    try:
+        user_id = int(request.data.get("user_id") or 0)
+    except (TypeError, ValueError):
+        return Response({"detail": "user_id inválido."}, status=400)
+
+    if not user_id:
+        return Response({"detail": "Falta user_id"}, status=400)
+
+    updated = (
+        SolicitudIntercambio.objects
+        .filter(
+            id_usuario_receptor_id=user_id,
+            estado__in=[SOLICITUD_ESTADO["PENDIENTE"], SOLICITUD_ESTADO["ACEPTADA"]],
+        )
+        .update(
+            visto_por_receptor=True,
+            actualizada_en=timezone.now(),
+        )
+    )
+
+    return Response({"ok": True, "updated": int(updated)})
 
 
 @api_view(["GET"])

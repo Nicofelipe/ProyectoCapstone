@@ -96,6 +96,21 @@ export class UserProfilePage implements OnInit {
   }
 }
 
+ goRatings() {
+    const u = this.prof();
+    if (!u) return;
+
+    this.router.navigate(
+      ['/users', u.id, 'ratings'],
+      {
+        queryParams: {
+          name: u.nombre_completo || u.email,
+        },
+      }
+    );
+  }
 
     goBook(id?: number | null) { if (id) this.router.navigate(['/books', id]); }
 }
+
+

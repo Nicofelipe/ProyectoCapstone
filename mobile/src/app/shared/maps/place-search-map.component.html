@@ -1,0 +1,22 @@
+<div class="psm-root" [style.--h.px]="height">
+  <ion-searchbar placeholder="Busca una dirección (CL)…" animated="true"></ion-searchbar>
+
+  <div class="row-actions">
+    <ion-button size="small" fill="outline" (click)="useMyLocation()">
+      <ion-icon name="locate-outline" slot="start"></ion-icon> Mi ubicación
+    </ion-button>
+    <ion-chip *ngIf="selected">
+      <ion-icon name="location-outline"></ion-icon>
+      <ion-label>{{ selected.address }}</ion-label>
+    </ion-chip>
+  </div>
+
+  <div id="place-search-map" class="map"></div>
+
+  <div class="footer">
+    <ion-button expand="block" [disabled]="!selected" (click)="confirmPick()">
+      <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+      Usar este lugar
+    </ion-button>
+  </div>
+</div>

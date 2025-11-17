@@ -24,6 +24,7 @@ from core.views import (
     admin_get_all_users,
     admin_delete_user,
     admin_toggle_user_active,
+    user_ratings_view,
 )
 
 # Auth JWT (login / logout-all) ya estandarizado en views_auth
@@ -77,6 +78,8 @@ urlpatterns = [
     path("api/users/<int:id>/", update_user_profile, name="user-update"),
     path("api/users/<int:id>/avatar/", update_user_avatar, name="user-avatar"),
     path("api/users/<int:user_id>/books/", user_books_view, name="user-books"),
+
+    path("api/users/<int:user_id>/ratings/", user_ratings_view, name="user-ratings"),
 
     # ------- ADMIN (requieren permiso IsAdminUser) -------
     path("api/admin/summary/", admin_dashboard_summary, name="admin-summary"),

@@ -1,134 +1,153 @@
 <ion-header>
-    <ion-toolbar>
-        <ion-buttons slot="start"><ion-back-button defaultHref="/home"></ion-back-button></ion-buttons>
-        <ion-title>Solicitudes</ion-title>
-    </ion-toolbar>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Solicitudes</ion-title>
+  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-    <div class="pad">
-        <ion-segment [value]="tab()" (ionChange)="tab.set($any($event.detail.value))">
-            <ion-segment-button value="recibidas">
-                <ion-label>Recibidas ({{ recibidas().length }})</ion-label>
-            </ion-segment-button>
-            <ion-segment-button value="enviadas">
-                <ion-label>Enviadas ({{ enviadas().length }})</ion-label>
-            </ion-segment-button>
-        </ion-segment>
-    </div>
+  <div class="pad">
+    <!-- Tabs Recibidas / Enviadas -->
+    <ion-segment [value]="tab()" (ionChange)="tab.set($any($event.detail.value))" mode="ios">
+      <ion-segment-button value="recibidas">
+        <ion-label>Recibidas ({{ filteredRecibidas().length }})</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="enviadas">
+        <ion-label>Enviadas ({{ filteredEnviadas().length }})</ion-label>
+      </ion-segment-button>
+    </ion-segment>
 
-    <!-- Loading -->
-    <ion-list inset="true" *ngIf="loading()">
-        <ion-item *ngFor="let i of [1,2,3]">
-            <ion-avatar slot="start" class="thumb"><ion-skeleton-text [animated]="true"
-                    style="width:56px;height:80px"></ion-skeleton-text></ion-avatar>
-            <ion-label>
-                <h3><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h3>
-                <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
-                <p><ion-skeleton-text [animated]="true" style="width:70%"></ion-skeleton-text></p>
-            </ion-label>
-        </ion-item>
-    </ion-list>
+    <!-- Filtro por estado -->
+    <ion-segment class="state-filter" [value]="filtro()" (ionChange)="filtro.set($any($event.detail.value))" mode="ios">
+  <ion-segment-button value="pendiente"><ion-label>Pendientes</ion-label></ion-segment-button>
+  <ion-segment-button value="aceptada"><ion-label>Aceptadas</ion-label></ion-segment-button>
+  <ion-segment-button value="canceladas"><ion-label>Canceladas / Rechazadas</ion-label></ion-segment-button>
+  <ion-segment-button value="completada"><ion-label>Completadas</ion-label></ion-segment-button>
+  <ion-segment-button value="todas"><ion-label>Todas</ion-label></ion-segment-button>
+</ion-segment>
+  </div>
 
-    <!-- Recibidas -->
-    <ion-list inset="true" *ngIf="!loading() && tab()==='recibidas'">
-        <ion-item button detail="true" *ngFor="let s of recibidas()" (click)="goDetail(s)">
-            <ion-avatar slot="start" class="thumb"><img src="/assets/librodefecto.png" alt="libro" /></ion-avatar>
-            <ion-label>
-                <h3>Libro solicitado: {{ s.libro_deseado?.titulo }}</h3>
-                <p class="muted">Usuario solicitante: {{ counterpartyName(s,'recibida') }}</p>
+  <!-- Loading skeleton -->
+  <ion-list inset="true" *ngIf="loading()">
+    <ion-item *ngFor="let i of [1,2,3]">
+      <ion-avatar slot="start" class="thumb-skeleton">
+        <ion-skeleton-text [animated]="true"></ion-skeleton-text>
+      </ion-avatar>
+      <ion-label>
+        <h3><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h3>
+        <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
+        <p><ion-skeleton-text [animated]="true" style="width:70%"></ion-skeleton-text></p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
 
-                <div class="meta">
-                    <ion-chip [outline]="true" [color]="colorEstado(s.estado)">
-                        <ion-icon name="pricetag-outline"></ion-icon>
-                        <ion-label>Estado: {{ s.estado }}</ion-label>
-                    </ion-chip>
+  <!-- ================== RECIBIDAS ================== -->
+  <ion-list inset="true" *ngIf="!loading() && tab()==='recibidas'">
+    <ion-item button
+              *ngFor="let s of filteredRecibidas(); trackBy: trackById"
+              (click)="goDetail(s)"
+              class="request-item"
+              [detail]="false">
 
-                    <ion-badge color="tertiary" *ngIf="ofertasCount(s)">
-                        Cantidad de ofertas: {{ ofertasCount(s) }}
-                    </ion-badge>
+      <ion-avatar slot="start" class="thumb">
+        <img [src]="getLibroImagen(getMiLibroId(s, 'recibidas'))" (error)="onImgError($event)" alt="libro" />
+      </ion-avatar>
 
-                    <ion-badge color="success" *ngIf="(s.estado||'').toLowerCase()==='aceptada' && s.libro_aceptado">
-                        Libro seleccionado: {{ s.libro_aceptado?.titulo }}
-                    </ion-badge>
+      <!-- SOLO TEXTO EN EL LABEL -->
+      <ion-label class="item-content">
+        <div class="text-info">
+          <h3>Mi Libro: {{ getMiLibroTitulo(s, 'recibidas') }}</h3>
+          <p>Su Libro: {{ getSuLibroTitulo(s, 'recibidas') }}</p>
 
-                    <ion-note>
-                        <ion-icon name="time-outline"></ion-icon>
-                        {{ s.actualizada_en || s.creada_en | date:'short' }}
-                    </ion-note>
-                </div>
+          <div class="meta-line">
+            <ion-icon name="person-outline"></ion-icon>
+            <ion-text>{{ counterpartyName(s, 'recibidas') }}</ion-text>
+          </div>
+          <div class="meta-line">
+            <ion-icon name="time-outline"></ion-icon>
+            <ion-text>{{ s.actualizada_en || s.creada_en | date:'short' }}</ion-text>
+          </div>
+        </div>
+      </ion-label>
 
-                <div class="line2" *ngIf="(s.estado||'').toLowerCase()==='aceptada'">
-                    <ion-icon name="location-outline"></ion-icon>
-                    Fecha/hora/lugar:
-                    {{ s.lugar_intercambio || 'A coordinar' }} •
-                    <ng-container *ngIf="s.fecha_intercambio_pactada; else pendienteFecha">
-                        {{ s.fecha_intercambio_pactada | date:'short' }}
-                    </ng-container>
-                    <ng-template #pendienteFecha>Pendiente</ng-template>
-                </div>
-            </ion-label>
+      <!-- CHIP + ACCIONES A LA DERECHA -->
+      <div class="end-col" slot="end" (click)="$event.stopPropagation()">
+        <ion-chip [outline]="true" [color]="colorEstado(s.estado)" class="status-chip">
+          <ion-label>{{ s.estado }}</ion-label>
+        </ion-chip>
 
-            <ion-buttons slot="end" *ngIf="showChat(s)">
-                <ion-button fill="outline" color="primary" (click)="openChat(s, $event)">
-                    <ion-icon name="chatbubbles-outline"></ion-icon>
-                </ion-button>
-            </ion-buttons>
-        </ion-item>
+        <div class="quick-actions">
+          <ng-container *ngIf="showQuickActions(s, 'recibidas')">
+            <ion-button fill="clear" color="success" (click)="aceptarRapido(s, $event)" class="action-btn">
+              <ion-icon slot="icon-only" name="checkmark-circle-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" color="danger" (click)="rechazarRapido(s, $event)" class="action-btn">
+              <ion-icon slot="icon-only" name="close-circle-outline"></ion-icon>
+            </ion-button>
+          </ng-container>
 
-        <ion-item *ngIf="!recibidas().length">
-            <ion-label class="muted">No tienes solicitudes recibidas.</ion-label>
-        </ion-item>
-    </ion-list>
+          <ng-container *ngIf="showChat(s)">
+            <ion-button fill="clear" color="primary" (click)="openChat(s, $event)" class="action-btn">
+              <ion-icon slot="icon-only" name="chatbubbles-outline"></ion-icon>
+            </ion-button>
+          </ng-container>
+        </div>
+      </div>
+    </ion-item>
 
-    <!-- Enviadas -->
-    <ion-list inset="true" *ngIf="!loading() && tab()==='enviadas'">
-        <ion-item button detail="true" *ngFor="let s of enviadas()" (click)="goDetail(s)">
-            <ion-avatar slot="start" class="thumb"><img src="/assets/librodefecto.png" alt="libro" /></ion-avatar>
-            <ion-label>
-                <h3>Libro solicitado: {{ s.libro_deseado?.titulo }}</h3>
-                <p class="muted">Para: {{ counterpartyName(s,'enviada') }}</p>
+    <ion-item *ngIf="!filteredRecibidas().length">
+      <ion-label class="muted">No hay solicitudes con ese filtro.</ion-label>
+    </ion-item>
+  </ion-list>
 
-                <div class="meta">
-                    <ion-chip [outline]="true" [color]="colorEstado(s.estado)">
-                        <ion-icon name="pricetag-outline"></ion-icon>
-                        <ion-label>Estado: {{ s.estado }}</ion-label>
-                    </ion-chip>
+  <!-- ================== ENVIADAS ================== -->
+  <ion-list inset="true" *ngIf="!loading() && tab()==='enviadas'">
+    <ion-item button
+              *ngFor="let s of filteredEnviadas(); trackBy: trackById"
+              (click)="goDetail(s)"
+              class="request-item"
+              [detail]="false">
 
-                    <ion-badge color="tertiary" *ngIf="ofertasCount(s)">
-                        Cantidad de ofertas: {{ ofertasCount(s) }}
-                    </ion-badge>
+      <ion-avatar slot="start" class="thumb">
+        <img [src]="getLibroImagen(getMiLibroId(s, 'enviadas'))" (error)="onImgError($event)" alt="libro" />
+      </ion-avatar>
 
-                    <ion-badge color="success" *ngIf="(s.estado||'').toLowerCase()==='aceptada' && s.libro_aceptado">
-                        Libro seleccionado: {{ s.libro_aceptado?.titulo }}
-                    </ion-badge>
+      <ion-label class="item-content">
+        <div class="text-info">
+          <h3>Mi Libro: {{ getMiLibroTitulo(s, 'enviadas') }}</h3>
+          <p>Su Libro: {{ getSuLibroTitulo(s, 'enviadas') }}</p>
 
-                    <ion-note>
-                        <ion-icon name="time-outline"></ion-icon>
-                        {{ s.actualizada_en || s.creada_en | date:'short' }}
-                    </ion-note>
-                </div>
+          <div class="meta-line">
+            <ion-icon name="person-outline"></ion-icon>
+            <ion-text>{{ counterpartyName(s, 'enviadas') }}</ion-text>
+          </div>
+          <div class="meta-line">
+            <ion-icon name="time-outline"></ion-icon>
+            <ion-text>{{ s.actualizada_en || s.creada_en | date:'short' }}</ion-text>
+          </div>
+        </div>
+      </ion-label>
 
-                <div class="line2" *ngIf="(s.estado||'').toLowerCase()==='aceptada'">
-                    <ion-icon name="location-outline"></ion-icon>
-                    Fecha/hora/lugar:
-                    {{ s.lugar_intercambio || 'A coordinar' }} •
-                    <ng-container *ngIf="s.fecha_intercambio_pactada; else pendiente2">
-                        {{ s.fecha_intercambio_pactada | date:'short' }}
-                    </ng-container>
-                    <ng-template #pendiente2>Pendiente</ng-template>
-                </div>
-            </ion-label>
+      <div class="end-col" slot="end" (click)="$event.stopPropagation()">
+        <ion-chip [outline]="true" [color]="colorEstado(s.estado)" class="status-chip">
+          <ion-label>{{ s.estado }}</ion-label>
+        </ion-chip>
 
-            <ion-buttons slot="end" *ngIf="showChat(s)">
-                <ion-button fill="outline" color="primary" (click)="openChat(s, $event)">
-                    <ion-icon name="chatbubbles-outline"></ion-icon>
-                </ion-button>
-            </ion-buttons>
-        </ion-item>
+        <div class="quick-actions">
+          <ng-container *ngIf="showChat(s)">
+            <ion-button fill="clear" color="primary" (click)="openChat(s, $event)" class="action-btn">
+              <ion-icon slot="icon-only" name="chatbubbles-outline"></ion-icon>
+            </ion-button>
+          </ng-container>
+        </div>
+      </div>
 
-        <ion-item *ngIf="!enviadas().length">
-            <ion-label class="muted">No tienes solicitudes enviadas.</ion-label>
-        </ion-item>
-    </ion-list>
+    </ion-item>
+
+    <ion-item *ngIf="!filteredEnviadas().length">
+      <ion-label class="muted">No hay solicitudes con ese filtro.</ion-label>
+    </ion-item>
+  </ion-list>
 </ion-content>

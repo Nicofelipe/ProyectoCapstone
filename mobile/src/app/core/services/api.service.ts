@@ -28,14 +28,31 @@ type JsonOptionsRequired = {
 
 @Injectable({ providedIn: 'root' })
 export default class ApiService {
+  // URL base (sin slash final)
   private readonly base = (environment.apiUrl || '').replace(/\/+$/, '');
 
-  constructor(private http: HttpClient) {}
+  // 👇 Exponemos la base para que otros servicios/componentes puedan leerla
+  public readonly BASE_URL = this.base;
+
+  // 👇 Getter seguro del ORIGIN (https://host[:puerto]) derivado de BASE_URL
+  public getBaseOrigin(): string {
+    try {
+      // Soporta absolute o relative (por si alguien puso '/api')
+      return new URL(this.base || '/', typeof window !== 'undefined' ? window.location.origin : 'http://localhost').origin;
+    } catch {
+      // Fallback razonable
+      return typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    }
+  }
+
+  constructor(private http: HttpClient) { }
 
   private buildUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) return path; // ya es absoluta
     const p = path.startsWith('/') ? path : `/${path}`;
     return this.base + p;
   }
+
 
   private normalizeOptions(options?: JsonHttpOptions): JsonOptionsRequired {
     let params: HttpParams | undefined;
@@ -62,13 +79,11 @@ export default class ApiService {
     };
   }
 
-  /** Convierte headers (si vienen como Record) a HttpHeaders */
   private asHttpHeaders(h?: HttpHeaders | Record<string, string | string[]>): HttpHeaders | undefined {
     if (!h) return undefined;
     return h instanceof HttpHeaders ? h : new HttpHeaders(h);
   }
 
-  /** Si el body es FormData, elimina Content-Type (el browser pondrá boundary correcto) */
   private optionsForBody(body: any, options?: JsonHttpOptions): JsonOptionsRequired {
     const base = this.normalizeOptions(options);
     if (body instanceof FormData) {

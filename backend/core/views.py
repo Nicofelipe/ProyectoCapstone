@@ -766,3 +766,94 @@ def admin_delete_user(request, user_id: int):
         return Response(status=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         return Response({"detail": f"No se pudo eliminar al usuario: {e}"}, status=409)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def user_ratings_view(request, user_id: int):
+    """
+    GET /api/users/<user_id>/ratings/
+
+    Devuelve todas las calificaciones donde el usuario participa:
+    - tipo: 'recibida' o 'enviada'
+    - estrellas, comentario
+    - libro_titulo (A ↔ B)
+    - contraparte_nombre (quien calificó o a quien califiqué)
+    - fecha (basada en el intercambio)
+    """
+    # Verificar que el usuario exista
+    user = Usuario.objects.filter(id_usuario=user_id, activo=True).first()
+    if not user:
+        return Response({"detail": "Usuario no encontrado."}, status=404)
+
+    # Traer calificaciones donde participa (como calificador o calificado)
+    califs = (
+        Calificacion.objects
+        .filter(
+            Q(id_usuario_calificador_id=user_id) |
+            Q(id_usuario_calificado_id=user_id)
+        )
+        .select_related(
+            "id_intercambio",
+            "id_intercambio__id_solicitud",
+            "id_intercambio__id_libro_ofrecido_aceptado",
+            "id_intercambio__id_solicitud__id_libro_deseado",
+            "id_usuario_calificador",
+            "id_usuario_calificado",
+        )
+        .order_by("-id_clasificacion")
+    )
+
+    out = []
+    for c in califs:
+        it = getattr(c, "id_intercambio", None)
+        si = getattr(it, "id_solicitud", None)
+        lo = getattr(it, "id_libro_ofrecido_aceptado", None)
+        ld = getattr(si, "id_libro_deseado", None)
+
+        # Título del intercambio: "Libro A ↔ Libro B"
+        t_a = getattr(lo, "titulo", None)
+        t_b = getattr(ld, "titulo", None)
+        if t_a or t_b:
+            libro_titulo = f"{t_a or '¿?'} ↔ {t_b or '¿?'}"
+        else:
+            libro_titulo = "Intercambio de libros"
+
+        # Determinar si para ESTE usuario la calificación es recibida o enviada
+        if c.id_usuario_calificado_id == user_id:
+            tipo = "recibida"
+            contraparte = getattr(c, "id_usuario_calificador", None)
+        else:
+            tipo = "enviada"
+            contraparte = getattr(c, "id_usuario_calificado", None)
+
+        contraparte_nombre = (
+            getattr(contraparte, "nombre_usuario", None)
+            or getattr(contraparte, "nombres", None)
+            or getattr(contraparte, "email", None)
+        )
+
+        # Fecha: usamos la lógica similar a user_intercambios_view
+        fecha = None
+        if it:
+            fecha = (
+                getattr(it, "fecha_completado", None)
+                or getattr(it, "fecha_intercambio_pactada", None)
+            )
+        if not fecha and si:
+            fecha = (
+                getattr(si, "actualizada_en", None)
+                or getattr(si, "creada_en", None)
+            )
+
+        out.append({
+            "id": getattr(c, "id_clasificacion", None),
+            "intercambio_id": getattr(it, "id_intercambio", None),
+            "tipo": tipo,  # 'recibida' | 'enviada'
+            "estrellas": c.puntuacion,
+            "comentario": c.comentario or "",
+            "fecha": fecha,
+            "libro_titulo": libro_titulo,
+            "contraparte_nombre": contraparte_nombre,
+        })
+
+    return Response(out)

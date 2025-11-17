@@ -1,188 +1,256 @@
 <ion-header>
   <ion-toolbar>
-    <ion-buttons slot="start"><ion-back-button defaultHref="/requests"></ion-back-button></ion-buttons>
-    <ion-title>Solicitud</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/requests"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Detalle del Intercambio</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list inset="true" *ngIf="row() as d; else loadingTpl">
-    <!-- Encabezado con info principal -->
-    <ion-item lines="full">
-      <ion-avatar slot="start" class="thumb"><img src="/assets/librodefecto.png" /></ion-avatar>
-      <ion-label>
-        <h2>Libro solicitado: "{{ d.libro_deseado?.titulo }}"</h2>
+  <ng-container *ngIf="row() as d; else loadingTpl">
+    <ion-list [inset]="true" lines="none">
 
-        <!-- 👇 Etiqueta dinámica según tu rol -->
-        <p class="muted">
-          {{ rol()==='recibida' ? 'Usuario solicitante' : 'Dueño del libro solicitado' }}:
-          <a class="link" (click)="goUser(rol()==='recibida' ? d.solicitante?.id_usuario : d.receptor?.id_usuario)">
-            {{ rol()==='recibida' ? (d.solicitante?.nombre_usuario || '—') : (d.receptor?.nombre_usuario || '—') }}
-          </a>
-        </p>
-
-        <div class="meta">
-          <ion-chip [outline]="true" [color]="colorEstado(d.estado)">
-            <ion-icon name="pricetag-outline"></ion-icon>
-            <ion-label>Estado: {{ d.estado }}</ion-label>
-          </ion-chip>
-
-          <ion-badge color="tertiary" *ngIf="d.ofertas?.length">
-            Cantidad de ofertas: {{ d.ofertas.length }}
-          </ion-badge>
-
-          <ion-badge color="success" *ngIf="esAceptada() && d.libro_aceptado">
-            Libro seleccionado: {{ d.libro_aceptado?.titulo }}
-          </ion-badge>
-
-          <ion-note>
-            <ion-icon name="time-outline"></ion-icon>
-            {{ d.actualizada_en || d.creada_en | date:'short' }}
-          </ion-note>
-        </div>
-
-        <!-- Fecha/hora/lugar -->
-        <div class="line2" *ngIf="esAceptada()">
-          <ion-icon name="location-outline"></ion-icon>
-          Fecha/hora/lugar:
-          {{ d.lugar_intercambio || 'A coordinar' }} •
-          <ng-container *ngIf="d.fecha_intercambio_pactada; else pendiente">
-            {{ d.fecha_intercambio_pactada | date:'short' }}
-          </ng-container>
-          <ng-template #pendiente>Pendiente</ng-template>
-        </div>
-      </ion-label>
-
-      <!-- Botón Chat fuera de la card -->
-      <ion-buttons slot="end" *ngIf="d.conversacion_id">
-        <ion-button fill="outline" color="primary" (click)="goChat()">
-          <ion-icon slot="start" name="chatbubbles-outline"></ion-icon> Ver chat
-        </ion-button>
-      </ion-buttons>
-    </ion-item>
-
-    <!-- Aceptar (solo RECEPTOR y cuando está Pendiente) -->
-    <ng-container *ngIf="puedeAceptar()">
-      <ion-item lines="none">
-        <ion-select placeholder="Selecciona libro" #sel>
-          <ion-select-option *ngFor="let o of d.ofertas" [value]="+offeredId(o)">
-            {{ offeredTitle(o) }}
-          </ion-select-option>
-        </ion-select>
-        <ion-button slot="end" (click)="aceptar(sel.value)" [disabled]="!sel.value">
-          Aceptar
-        </ion-button>
-      </ion-item>
-    </ng-container>
-
-    <!-- Rechazar/Cancelar (pendiente) -->
-    <ion-item lines="none" *ngIf="esPendiente()">
-      <ion-buttons slot="start" *ngIf="puedeRechazar()">
-        <ion-button color="danger" fill="outline" (click)="rechazar()">
-          <ion-icon slot="start" name="close-circle-outline"></ion-icon> Rechazar
-        </ion-button>
-      </ion-buttons>
-
-      <ion-buttons slot="end" *ngIf="puedeCancelar()">
-        <ion-button color="medium" fill="outline" (click)="cancelar()">
-          <ion-icon slot="start" name="ban-outline"></ion-icon> Cancelar
-        </ion-button>
-      </ion-buttons>
-    </ion-item>
-
-    <!-- Reunión (editable solo por el RECEPTOR) -->
-    <ng-container *ngIf="reunionVisible()">
-      <ng-container *ngIf="puedeProponer(); else soloLecturaReunion">
-        <ion-item>
-          <ion-input label="Lugar" labelPlacement="floating" [(ngModel)]="lugar"></ion-input>
-        </ion-item>
-        <ion-item>
-          <ion-input type="datetime-local" label="Fecha" labelPlacement="floating" [(ngModel)]="fecha"></ion-input>
-        </ion-item>
-        <div style="padding:8px 16px;">
-          <ion-button (click)="proponer()">
-            <ion-icon slot="start" name="calendar-outline"></ion-icon> Proponer
-          </ion-button>
-        </div>
-      </ng-container>
-
-      <ng-template #soloLecturaReunion>
-        <ion-item>
-          <ion-label>
-            <div class="line2">
-              <ion-icon name="location-outline"></ion-icon>
-              Fecha/hora/lugar:
-              {{ d.lugar_intercambio || 'A coordinar' }} •
-              <ng-container *ngIf="d.fecha_intercambio_pactada; else pendiente3">
-                {{ d.fecha_intercambio_pactada | date:'short' }}
-              </ng-container>
-              <ng-template #pendiente3>Pendiente</ng-template>
+      <ion-card class="summary-card">
+        <ion-card-header>
+          <div class="book-row">
+            <div class="book-item">
+              <span class="book-label">Mi Libro</span>
+              <div class="book-image">
+                <img [src]="miLibroImagen()" (error)="onImgError($event)" alt="mi libro" />
+              </div>
+              <span class="book-title" role="button" (click)="goBook(miLibroId())">
+                {{ miLibroTitulo() }}
+              </span>
             </div>
-          </ion-label>
-        </ion-item>
-        <div style="padding:8px 16px;" *ngIf="puedeConfirmar()">
-          <ion-button color="success" fill="outline" (click)="confirmar()">
-            <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon> Confirmar
+
+            <ion-icon name="swap-horizontal-outline" class="swap-icon"></ion-icon>
+
+            <div class="book-item">
+              <span class="book-label">Libro Ofrecido</span>
+              <div class="book-image">
+                <img [src]="libroOfrecidoImagen()" (error)="onImgError($event)" alt="libro ofrecido" />
+              </div>
+              <span class="book-title" role="button" (click)="goBook(libroOfrecidoId())">
+                {{ libroOfrecidoTitulo() }}
+              </span>
+            </div>
+          </div>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="details-row">
+            <div class="detail-item">
+              <ion-icon name="person-outline" slot="start" class="detail-icon"></ion-icon>
+              <ion-label>
+                <p>Usuario</p>
+                <h3 (click)="goUser(counterUserId())" class="link">
+                  {{ counterUserName() || '—' }}
+                </h3>
+              </ion-label>
+            </div>
+          </div>
+
+          <ion-button expand="block" (click)="goChat()" [disabled]="!d.conversacion_id" class="chat-button">
+            <ion-icon slot="start" name="chatbubbles-outline"></ion-icon>
+            Abrir chat
           </ion-button>
-        </div>
-      </ng-template>
-    </ng-container>
+        </ion-card-content>
+      </ion-card>
 
-    <!-- Código (sin botón de chat aquí adentro) -->
-    <ion-card *ngIf="esAceptada()">
-      <ion-card-header>
-        <ion-card-title>Código de intercambio</ion-card-title>
-        <ion-card-subtitle>
-          {{ rol()==='recibida' ? 'Genera el código y compártelo' : 'Ingresa el código recibido' }}
-        </ion-card-subtitle>
-      </ion-card-header>
-      <ion-card-content>
-        <div *ngIf="puedeGenerar()">
-          <ion-button (click)="generarCodigo()">
-            <ion-icon slot="start" name="key-outline"></ion-icon> Generar código
+      <div *ngIf="esPendiente()" class="actions-pendiente">
+        <ng-container *ngIf="puedeAceptar()">
+          <ion-button expand="block" color="success" (click)="aceptar()">
+            <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+            Aceptar Intercambio
           </ion-button>
-          <div class="codigo" *ngIf="codigoGenerado()">Código: <b>{{ codigoGenerado() }}</b></div>
-        </div>
+        </ng-container>
 
-        <div *ngIf="puedeIngresar()" class="code-input">
-          <ion-input placeholder="Código" [(ngModel)]="codigoIngresado"></ion-input>
-          <ion-button color="success" (click)="completar()" [disabled]="!codigoIngresado()">Completar</ion-button>
-        </div>
-      </ion-card-content>
-    </ion-card>
+        <ion-button *ngIf="puedeRechazar()" expand="block" color="danger" fill="outline" (click)="rechazar()">
+          <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+          Rechazar Solicitud
+        </ion-button>
 
-    <!-- Resumen cuando está completado -->
-    <ion-card *ngIf="d.fecha_completado">
-      <ion-card-header>
-        <ion-card-title>Intercambio completado</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        <p><b>Lugar de intercambio:</b> {{ d.lugar_intercambio || '—' }}</p>
-        <p><b>Fecha de intercambio:</b> {{ d.fecha_completado | date:'short' }}</p>
-        <p><b>Libro ofrecido:</b> {{ d.libro_aceptado?.titulo || '—' }}</p>
-        <p><b>Libro solicitado:</b> {{ d.libro_deseado?.titulo || '—' }}</p>
-        <ion-note>El chat está disponible para lectura, no podrás enviar nuevos mensajes.</ion-note>
+        <ion-button *ngIf="puedeCancelar()" expand="block" color="medium" fill="outline" (click)="cancelar()">
+          <ion-icon slot="start" name="ban-outline"></ion-icon>
+          Cancelar Solicitud
+        </ion-button>
+      </div>
 
-        <!-- Botón de calificación con modal -->
-        <div style="margin-top:12px" *ngIf="puedeCalificar() && !yaCalifique()">
-          <ion-button color="warning" (click)="openRating()">
-            <ion-icon slot="start" name="star-outline"></ion-icon>
-            Calificar usuario
-          </ion-button>
-        </div>
-        <ion-note *ngIf="puedeCalificar() && yaCalifique()" style="display:block;margin-top:8px;">
-          Ya calificaste este intercambio ✅
-        </ion-note>
-      </ion-card-content>
-    </ion-card>
+      <ion-card *ngIf="reunionVisible()">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="location-outline"></ion-icon>
+            Punto de encuentro
+          </ion-card-title>
+          <ion-card-subtitle *ngIf="!tienePropuesta() && !hayPropuestaPendiente()">Definan lugar y hora para
+            continuar</ion-card-subtitle>
+          <ion-card-subtitle color="primary" *ngIf="hayPropuestaPendiente()">Propuesta pendiente de
+            confirmación</ion-card-subtitle>
+          <ion-card-subtitle color="success" *ngIf="tienePropuesta()">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+            Encuentro pactado
+          </ion-card-subtitle>
+        </ion-card-header>
 
-  </ion-list>
+        <ion-card-content>
+          <ng-container *ngIf="puedeProponer(); else verPropuestaTpl">
+
+            <ion-item>
+              <ion-input label="Lugar" labelPlacement="floating" [value]="lugar()" [readonly]="true"
+                placeholder="Toca el mapa para elegir">
+              </ion-input>
+              <ion-button slot="end" fill="outline" (click)="openMapPicker()">
+                <ion-icon slot="start" name="map-outline"></ion-icon> Mapa
+              </ion-button>
+            </ion-item>
+
+            <ion-item button="true" (click)="openDateTimeModal()" detail="true">
+              <ion-icon name="calendar-outline" slot="start" color="medium"></ion-icon>
+              <ion-label>
+                <p>Fecha y hora</p>
+                <h2 *ngIf="fecha(); else fechaPlaceholder">
+                  {{ fecha() | date:'dd/MM/yy, HH:mm' }}
+                </h2>
+                <ng-template #fechaPlaceholder>
+                  <span class="placeholder">Seleccionar...</span>
+                </ng-template>
+              </ion-label>
+            </ion-item>
+
+            <ion-button expand="block" class="ion-margin-top" (click)="proponer()">
+              <ion-icon slot="start" name="send-outline"></ion-icon>
+              Enviar propuesta
+            </ion-button>
+          </ng-container>
+
+          <ng-template #verPropuestaTpl>
+            <div class="meeting-info">
+              <ion-item>
+                <ion-icon name="navigate-outline" slot="start" color="medium"></ion-icon>
+                <ion-label>
+                  <p>Lugar:</p>
+                  <h2>{{ (hayPropuestaPendiente() ? propuesta()?.direccion : d.lugar_intercambio) || 'Pendiente' }}</h2>
+                </ion-label>
+              </ion-item>
+
+              <ion-item>
+                <ion-icon name="calendar-outline" slot="start" color="medium"></ion-icon>
+                <ion-label>
+                  <p>Fecha:</p>
+                  <h2>{{ (hayPropuestaPendiente() ? (propuesta()?.fecha | date:'dd/MM/yy') :
+                    (d.fecha_intercambio_pactada | date:'dd/MM/yy')) || '—' }}</h2>
+                </ion-label>
+              </ion-item>
+
+              <ion-item>
+                <ion-icon name="time-outline" slot="start" color="medium"></ion-icon>
+                <ion-label>
+                  <p>Hora:</p>
+                  <h2>{{ (hayPropuestaPendiente() ? (propuesta()?.fecha | date:'HH:mm') : (d.fecha_intercambio_pactada |
+                    date:'HH:mm')) || '—' }}</h2>
+                </ion-label>
+              </ion-item>
+            </div>
+
+            <div *ngIf="puedeConfirmarORechazar()" class="propuesta-pendiente">
+              <div class="actions">
+                <ion-button color="success" (click)="confirmar()">
+                  <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+                  Aceptar Propuesta
+                </ion-button>
+                <ion-button fill="outline" color="danger" (click)="rechazarPropuesta()">
+                  <ion-icon slot="start" name="close-outline"></ion-icon>
+                  Rechazar
+                </ion-button>
+              </div>
+            </div>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card *ngIf="esAceptada() && !estaCompletado()">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="keypad-outline"></ion-icon>
+            Código de Validación
+          </ion-card-title>
+          <ion-card-subtitle *ngIf="!tienePropuesta()" color="warning">
+            <ion-icon name="warning-outline"></ion-icon>
+            Primero deben pactar un lugar y hora.
+          </ion-card-subtitle>
+        </ion-card-header>
+
+        <ion-card-content>
+          <ng-container *ngIf="!tienePropuesta(); else codeEnabled">
+            <div class="disabled-overlay">
+              <ion-icon name="lock-closed-outline" size="large" color="medium"></ion-icon>
+              <ion-label color="medium">Bloqueado hasta pactar encuentro</ion-label>
+            </div>
+          </ng-container>
+
+          <ng-template #codeEnabled>
+            <div *ngIf="puedeIngresar()" class="code-input">
+              <ion-item>
+                <ion-input label="Ingresar Código" labelPlacement="floating" placeholder="ABC123"
+                  [ngModel]="codigoIngresado()" (ngModelChange)="codigoIngresado.set($event)">
+                </ion-input>
+              </ion-item>
+              <ion-button expand="block" color="success" (click)="completar()" [disabled]="!codigoIngresado()">
+                <ion-icon name="checkmark-done-outline" slot="start"></ion-icon>
+                Confirmar Intercambio
+              </ion-button>
+            </div>
+
+            <div *ngIf="puedeGenerar()" class="code-generate">
+              <ion-button expand="block" fill="outline" (click)="generarCodigo()" *ngIf="!codigoGenerado()">
+                <ion-icon slot="start" name="key-outline"></ion-icon>
+                Generar código
+              </ion-button>
+              <div *ngIf="codigoGenerado()" class="codigo-display">
+                <ion-label color="medium">Tu código es:</ion-label>
+                <div class="codigo">{{ codigoGenerado() }}</div>
+                <ion-note>Entrega este código al otro usuario.</ion-note>
+              </div>
+            </div>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card *ngIf="estaCompletado()">
+        <ion-card-header>
+          <ion-card-title color="success">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            Intercambio Completado
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-note>El chat está disponible solo para lectura. Solo puedes calificar una vez.</ion-note>
+
+          <div *ngIf="puedeCalificar()">
+            <ion-button *ngIf="!yaCalifique()" expand="block" color="warning" (click)="openRating()"
+              class="ion-margin-top">
+              <ion-icon slot="start" name="star-outline"></ion-icon>
+              Calificar usuario
+            </ion-button>
+            <ion-item *ngIf="yaCalifique()" lines="none" color="light" class="ion-margin-top"
+              style="border-radius: 8px;">
+              <ion-icon name="star" slot="start" color="warning"></ion-icon>
+              <ion-label>Ya calificaste este intercambio.</ion-label>
+            </ion-item>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+    </ion-list>
+  </ng-container>
 
   <ng-template #loadingTpl>
     <ion-list inset="true">
       <ion-item>
-        <ion-avatar slot="start" class="thumb"><ion-skeleton-text [animated]="true"
-            style="width:56px;height:80px"></ion-skeleton-text></ion-avatar>
+        <ion-avatar slot="start" class="thumb">
+          <ion-skeleton-text [animated]="true" style="width:56px;height:80px"></ion-skeleton-text>
+        </ion-avatar>
         <ion-label>
           <h3><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h3>
           <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
@@ -191,7 +259,7 @@
     </ion-list>
   </ng-template>
 
-  <!-- ===== Modal de Calificación ===== -->
+  <!-- Modal de calificación (igual que tenías) -->
   <ion-modal [isOpen]="ratingOpen()" (didDismiss)="ratingOpen.set(false)">
     <ng-template>
       <ion-header translucent>
@@ -202,26 +270,98 @@
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
-
       <ion-content class="ion-padding">
         <ion-item>
-          <ion-range min="1" max="5" step="1" snaps="true" ticks="true" [(ngModel)]="ratingVal">
+          <ion-range aria-label="Calificación" min="1" max="5" step="1" snaps="true" ticks="true"
+            [ngModel]="ratingVal()" (ngModelChange)="ratingVal.set(+$event)">
             <ion-label slot="start">1</ion-label>
             <ion-label slot="end">5</ion-label>
           </ion-range>
         </ion-item>
-
         <ion-item>
           <ion-textarea autoGrow="true" label="Comentario (opcional)" labelPlacement="floating"
-            placeholder="¿Cómo fue la experiencia?" [(ngModel)]="ratingComment">
+            placeholder="¿Cómo fue la experiencia?" [ngModel]="ratingComment()"
+            (ngModelChange)="ratingComment.set($event)">
           </ion-textarea>
         </ion-item>
-
-        <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+        <div class="modal-actions">
           <ion-button fill="outline" (click)="ratingOpen.set(false)">Cancelar</ion-button>
           <ion-button color="primary" (click)="confirmRating()">Enviar</ion-button>
         </div>
       </ion-content>
     </ng-template>
   </ion-modal>
+
+  <!-- Modal de Fecha/Hora (corregido) -->
+  <ion-modal [isOpen]="dateTimeModalOpen()" (didDismiss)="dateTimeModalOpen.set(false)" class="datetime-modal"
+    [breakpoints]="[0, 1]" [initialBreakpoint]="1">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Seleccionar Fecha y Hora</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="cancelarFechaModal()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <div class="ion-padding modal-body">
+        <div class="datetime-wrapper">
+          <ion-datetime [value]="tempFecha() || undefined" (ionChange)="onTempDateChange($event)"
+            presentation="date-time" minuteValues="0,15,30,45" hourCycle="h23" locale="es-CL"
+            [min]="minLocal()"></ion-datetime>
+        </div>
+
+        <div class="modal-actions-datetime">
+          <ion-button expand="block" color="primary" (click)="confirmarFechaModal()">
+            <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+            Confirmar
+          </ion-button>
+          <ion-button expand="block" color="medium" fill="outline" (click)="cancelarFechaModal()">
+            Cancelar
+          </ion-button>
+        </div>
+      </div>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Modal de lugar (igual que tenías) -->
+  <ion-modal [isOpen]="placeOpen()" (didDismiss)="placeOpen.set(false)">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Elegir lugar</ion-title>
+          <ion-buttons slot="end"><ion-button (click)="placeOpen.set(false)">Cerrar</ion-button></ion-buttons>
+        </ion-toolbar>
+        <ion-toolbar>
+          <ion-segment [value]="placeTab()" (ionChange)="onPlaceTabChange($event)">
+            <ion-segment-button value="buscar"><ion-label>Buscar dirección</ion-label></ion-segment-button>
+            <ion-segment-button value="seguros"><ion-label>Puntos seguros</ion-label></ion-segment-button>
+          </ion-segment>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="ion-padding">
+        <ng-container *ngIf="placeTab()==='seguros'">
+          <app-map-cambiotecas-embed [height]="380" [selectable]="true" (pick)="onPinPicked($event)">
+          </app-map-cambiotecas-embed>
+          <ion-note>Elige un punto seguro recomendado (Cambiotecas/DUOC/Bibliotecas/Metro).</ion-note>
+        </ng-container>
+
+        <ng-container *ngIf="placeTab()==='buscar'">
+          <app-place-search-map (picked)="onPlacePicked($event)"></app-place-search-map>
+          <ion-note>Busca una dirección exacta y ajusta el pin.</ion-note>
+        </ng-container>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Botón de cancelar intercambio -->
+  <div class="cancel-wrapper" *ngIf="puedeCancelarIX()">
+    <ion-button expand="block" fill="outline" class="btn-cancel-outline-pastel" (click)="cancelarIntercambio()">
+      <ion-icon slot="start" name="ban-outline"></ion-icon>
+      Cancelar intercambio
+    </ion-button>
+  </div>
+
 </ion-content>

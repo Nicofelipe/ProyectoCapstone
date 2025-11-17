@@ -10,80 +10,100 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <ng-container *ngIf="!loading(); else skeleton">
-    <ng-container *ngIf="books().length; else empty">
-      <ion-list inset="true">
-        <ion-item *ngFor="let b of books(); trackBy: trackById" lines="full" button="true" detail="true"
-          class="book-item" (click)="open(b)">
-          <ion-thumbnail slot="start" class="thumb-portrait">
-            <img [ngSrc]="b.first_image || '/media/books/librodefecto.png'" [fill]="true" alt="portada"
-              (error)="onImgError($event)" />
-          </ion-thumbnail>
+  <div class="filters-sticky">
+    <ion-segment [value]="filter()" class="filter-segment" (ionChange)="onFilterChange($event)">
+      <ion-segment-button value="disponibles">
+        <ion-label>Disponibles</ion-label>
+      </ion-segment-button>
 
-          <ion-label>
-            <h2 class="ttl">
-              {{ b.titulo }}
-              <span *ngIf="b.has_new_requests" class="dot" title="Nuevas solicitudes"></span>
-            </h2>
+      <ion-segment-button value="en-curso">
+        <ion-label>En curso</ion-label>
+      </ion-segment-button>
 
-            <p class="muted">de {{ b.autor }}</p>
-            <p class="muted">Editorial: {{ b.editorial }} · {{ b.tipo_tapa }}</p>
-            <p class="muted">Género: {{ b.genero || b.genero_nombre || '—' }}</p>
+      <ion-segment-button value="no-disponibles">
+        <ion-label>No disponibles</ion-label>
+      </ion-segment-button>
 
-            <p class="desc">{{ b.descripcion }}</p>
+      <ion-segment-button value="all">
+        <ion-label>Todos</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </div>
+  <ng-container *ngIf="!loading(); else loadingTpl">
+    <ng-container *ngIf="filteredBooks().length; else empty">
+      <ion-list [inset]="true">
+        <a *ngFor="let b of filteredBooks(); trackBy: trackById" (click)="open(b)" class="book-card-link"
+          [class.not-disponible]="!b.disponible" (mousedown)="onItemClick($event)">
 
-            <!-- Ubicación separada, siempre en su propia línea -->
-            <div class="loc" *ngIf="b.comuna_nombre">
-              <ion-icon name="location-outline" color="danger"></ion-icon>
-              {{ b.comuna_nombre }}
+          <div class="card-image-wrapper">
+
+            <div class="top-badge" aria-hidden="true">
+              <ion-icon name="person-circle-outline"></ion-icon>
+              <span>Mi libro</span>
             </div>
 
-            <!-- Footer en dos columnas -->
-            <div class="footer">
-              <div class="left">
-                <ion-badge [color]="b.disponible ? 'success' : 'medium'">
-                  {{ b.disponible ? 'Disponible' : 'No disponible' }}
-                </ion-badge>
+            <img [ngSrc]="b.first_image || '/media/books/librodefecto.png'" [fill]="true" alt="portada"
+              (error)="onImgError($event)" loading="lazy" />
 
-                <ion-chip color="primary" outline="true" class="estado">
+            <span *ngIf="b.has_new_requests" class="dot" title="Nuevas solicitudes"></span>
+
+            <div class="text-box">
+              <h3 class="title">{{ b.titulo }}</h3>
+              <p class="author">de {{ b.autor }}</p>
+
+              <p class="meta-line">
+                <span *ngIf="b.comuna_nombre">
+                  <ion-icon name="location-outline"></ion-icon>
+                  {{ b.comuna_nombre }}
+                </span>
+                <span *ngIf="b.comuna_nombre"> &bull; </span>
+                <span>
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  {{ b.fecha_subida | date:'dd MMM y' }}
+                </span>
+              </p>
+
+              <div class="chips-container">
+                <!-- Estado del flujo de intercambio / disponibilidad -->
+                <ion-chip class="status-chip">
+                  <ion-icon [name]="estadoIcon(b)"></ion-icon>
+                  <ion-label>{{ estadoVisual(b) }}</ion-label>
+                </ion-chip>
+
+                <!-- Condición física del libro (como nuevo, usado, etc.) -->
+                <ion-chip class="exchange-chip">
                   <ion-icon name="pricetag-outline"></ion-icon>
                   <ion-label>{{ b.estado }}</ion-label>
                 </ion-chip>
               </div>
-
-              <div class="right">
-                <ion-note class="fecha">
-                  <ion-icon name="time-outline"></ion-icon>
-                  {{ b.fecha_subida | date:'short' }}
-                </ion-note>
-              </div>
             </div>
-          </ion-label>
-        </ion-item>
+          </div>
+        </a>
       </ion-list>
     </ng-container>
   </ng-container>
 
-  <ng-template #skeleton>
-    <ion-list inset="true">
-      <ion-item *ngFor="let i of [1,2,3,4]" lines="full">
-        <ion-thumbnail slot="start" class="thumb-portrait">
-          <ion-skeleton-text [animated]="true" style="width:100%;height:100%"></ion-skeleton-text>
-        </ion-thumbnail>
-        <ion-label>
-          <h2><ion-skeleton-text [animated]="true" style="width:60%"></ion-skeleton-text></h2>
-          <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
-          <p><ion-skeleton-text [animated]="true" style="width:80%"></ion-skeleton-text></p>
-        </ion-label>
-      </ion-item>
+  <ng-template #loadingTpl>
+    <ion-list [inset]="true">
+      <div class="book-card-link skeleton" *ngFor="let i of [1,2,3]">
+        <div class="card-image-wrapper">
+          <ion-skeleton-text [animated]="true" class="skeleton-image"></ion-skeleton-text>
+          <div class="text-box">
+            <h3 class="title"><ion-skeleton-text [animated]="true" style="width: 70%"></ion-skeleton-text></h3>
+            <p class="author"><ion-skeleton-text [animated]="true" style="width: 40%"></ion-skeleton-text></p>
+            <p class="meta-line"><ion-skeleton-text [animated]="true" style="width: 80%"></ion-skeleton-text></p>
+            <div class="chips-container">
+              <ion-skeleton-text [animated]="true"
+                style="width: 110px; height: 28px; border-radius: 16px;"></ion-skeleton-text>
+            </div>
+          </div>
+        </div>
+      </div>
     </ion-list>
   </ng-template>
 
   <ng-template #empty>
-    <div class="empty">
-      <ion-icon name="library-outline"></ion-icon>
-      <h3>Aún no has subido libros</h3>
-      <p>Cuando agregues tus libros, aparecerán aquí.</p>
-    </div>
+    <section class="empty-wrap">
+    </section>
   </ng-template>
 </ion-content>

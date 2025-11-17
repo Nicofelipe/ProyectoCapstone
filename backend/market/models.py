@@ -291,6 +291,8 @@ class SolicitudIntercambio(models.Model):
     fecha_completado = models.DateTimeField(null=True, blank=True)
     creada_en = models.DateTimeField(null=True, blank=True)
     actualizada_en = models.DateTimeField(null=True, blank=True)
+    visto_por_receptor = models.BooleanField(default=False)
+
 
     class Meta:
         db_table = 'solicitud_intercambio'

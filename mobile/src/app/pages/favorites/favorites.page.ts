@@ -11,6 +11,9 @@ import {
     IonItem, IonLabel,
     IonList,
     IonMenuButton,
+    IonRefresher, // 👈 NUEVO
+    IonRefresherContent, // 👈 NUEVO
+    IonThumbnail,
     IonTitle,
     IonToolbar
 } from '@ionic/angular/standalone';
@@ -24,7 +27,8 @@ import { environment } from 'src/environments/environment';
     imports: [
         CommonModule, FormsModule,
         IonHeader, IonToolbar, IonTitle, IonContent,
-        IonButtons, IonMenuButton, IonList, IonItem, IonLabel, IonBadge, IonButton, IonAvatar
+        IonButtons, IonMenuButton, IonList, IonItem, IonLabel, IonBadge, IonButton, IonAvatar,
+        IonRefresher, IonRefresherContent, IonThumbnail 
     ],
     templateUrl: './favorites.page.html',
     styleUrls: ['./favorites.page.scss'],
@@ -43,14 +47,34 @@ export class FavoritesPage implements OnInit {
         this.load();
     }
 
-    load() {
-        if (!this.meId) return;
-        this.loading = true;
-        this.favs.list(this.meId).subscribe({
-            next: arr => { this.items = arr || []; this.loading = false; },
-            error: () => { this.items = []; this.loading = false; }
-        });
+    async doRefresh(ev: CustomEvent) {
+    if (!this.meId) {
+      (ev.target as HTMLIonRefresherElement).complete();
+      return;
     }
+    this.favs.list(this.meId).subscribe({
+      next: arr => { this.items = (arr || []).filter(x => x?.disponible === true); },
+      error: () => {},
+      complete: () => (ev.target as HTMLIonRefresherElement).complete()
+    });
+  }
+
+
+    load() {
+  if (!this.meId) return;
+  this.loading = true;
+  this.favs.list(this.meId).subscribe({
+    next: arr => {
+      // Oculta todo lo NO disponible (por si el backend aún no está filtrando)
+      this.items = (arr || []).filter(x => x?.disponible === true);
+      this.loading = false;
+    },
+    error: () => { this.items = []; this.loading = false; }
+  });
+}
+
+
+
 
     open(id: number) { this.router.navigate(['/books/view', id]); }
 

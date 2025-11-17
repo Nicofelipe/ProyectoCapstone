@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { IonicModule } from '@ionic/angular';
+import { IonContent, IonicModule } from '@ionic/angular';
 import { Subscription } from 'rxjs';
 
 import { ComposerComponent } from 'src/app/components/chat/composer/composer.component';
@@ -18,6 +18,8 @@ import { RealtimeService } from 'src/app/core/services/realtime.service';
   styleUrls: ['./room.page.scss'],
 })
 export class RoomPage implements OnInit, OnDestroy {
+  @ViewChild(IonContent) content?: IonContent;   // 👈 acceso al ion-content
+
   chatId = 0;
   title = 'Chat';
   meId = 0;
@@ -38,7 +40,6 @@ export class RoomPage implements OnInit, OnDestroy {
     this.meId = this.auth.user?.id ?? 0;
 
     this.chatId = Number(this.route.snapshot.paramMap.get('id') ?? 0);
-    // título desde history.state si viene
     const st = history.state as any;
     if (st?.title) this.title = st.title;
 
@@ -47,6 +48,10 @@ export class RoomPage implements OnInit, OnDestroy {
     this.sub = this.rt.watchConversation(this.chatId).subscribe(list => {
       this.messages.set(list);
       this.loading.set(false);
+
+      // 👇 baja al último mensaje cuando cambie la lista
+      setTimeout(() => this.scrollToBottom(), 50);
+      
       const last = list.length ? list[list.length - 1].id_mensaje : 0;
       if (last) this.chat.markSeen(this.chatId, this.meId).subscribe();
     });
@@ -54,8 +59,16 @@ export class RoomPage implements OnInit, OnDestroy {
 
   ngOnDestroy() { this.sub?.unsubscribe(); }
 
+  private scrollToBottom() {
+    if (!this.content) return;
+    this.content.scrollToBottom(300); // 300ms de animación
+  }
+
   async onSend(text: string) {
     if (!text?.trim()) return;
-    await this.chat.sendMessage(this.chatId, text.trim(), this.meId).toPromise(); // 👈 pasa meId
+    await this.chat.sendMessage(this.chatId, text.trim(), this.meId).toPromise();
+
+    // 👇 asegurar que después de enviar también baje
+    setTimeout(() => this.scrollToBottom(), 50);
   }
 }

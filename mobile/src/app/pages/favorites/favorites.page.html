@@ -6,36 +6,72 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list *ngIf="items?.length; else empty">
-    <ion-item button detail="true" *ngFor="let b of items" (click)="open(b.id)">
-      <ion-thumbnail slot="start" class="thumb">
-        <img
-          [src]="coverUrl(b)"
-          (error)="onImgError($event)"
-          alt="portada"
-          loading="lazy"
-        />
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content
+      pullingText="Desliza para actualizar"
+      refreshingSpinner="crescent"
+      refreshingText="Actualizando…">
+    </ion-refresher-content>
+  </ion-refresher>
+
+  <ion-list [inset]="true" *ngIf="!items">
+    <ion-item *ngFor="let i of [1,2,3,4]">
+      <ion-thumbnail slot="start" class="book-thumb-skeleton">
+        <ion-skeleton-text [animated]="true"></ion-skeleton-text>
+      </ion-thumbnail>
+      <ion-label>
+        <h3><ion-skeleton-text [animated]="true" style="width:70%"></ion-skeleton-text></h3>
+        <p><ion-skeleton-text [animated]="true" style="width:40%"></ion-skeleton-text></p>
+        <p><ion-skeleton-text [animated]="true" style="width:50%"></ion-skeleton-text></p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <ion-list [inset]="true" *ngIf="items?.length; else empty">
+    
+    <ion-item *ngFor="let b of items"
+              class="fav-item"
+              [class.not-disponible]="!b.disponible"
+              [button]="true"
+              (click)="open(b.id)"
+              [detail]="false">
+
+      <ion-thumbnail slot="start" class="book-thumb">
+        <img [src]="coverUrl(b)" (error)="onImgError($event)" alt="portada" loading="lazy" />
       </ion-thumbnail>
 
-      <ion-label>
-        <h2>
-          {{ b.titulo }}
-          <ion-badge style="margin-left:6px" [color]="b.disponible ? 'success' : 'medium'">
-            {{ b.disponible ? 'Disponible' : 'No disp.' }}
-          </ion-badge>
-        </h2>
-        <p class="muted">de {{ b.autor || '—' }}</p>
-        <p class="owner"><strong>@{{ b.owner_nombre || '—' }}</strong></p>
+      <ion-label class="item-content">
+        <div class="text-info">
+          <h3>{{ b.titulo }}</h3>
+          
+          <div class="meta-line">
+            <ion-icon name="person-outline"></ion-icon>
+            <ion-text>{{ b.autor || '—' }}</ion-text>
+          </div>
+          <div class="meta-line">
+            <ion-icon name="at-outline"></ion-icon>
+            <ion-text>@{{ b.owner_nombre || '—' }}</ion-text>
+          </div>
+        </div>
       </ion-label>
 
-      <ion-button slot="end" fill="clear" color="danger"
-                  (click)="$event.stopPropagation(); remove(b.id)">
-        Quitar
-      </ion-button>
+      <div class="end-col" slot="end" (click)="$event.stopPropagation()">
+        <div class="quick-actions">
+          <ion-button fill="clear" color="danger" (click)="remove(b.id)" class="action-btn remove-fav-btn">
+            <ion-icon slot="icon-only" name="heart-dislike-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
     </ion-item>
   </ion-list>
 
   <ng-template #empty>
-    <div style="padding:16px">Aún no tienes libros en Favoritos.</div>
+    <div class="empty-state">
+      <ion-icon name="heart-outline"></ion-icon>
+      <h3>Sin favoritos</h3>
+      <p>Aún no has guardado libros en tu lista de favoritos.</p>
+    </div>
   </ng-template>
+
 </ion-content>

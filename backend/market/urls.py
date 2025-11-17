@@ -67,6 +67,7 @@ urlpatterns = [
     path('libros/<int:libro_id>/favorito/check/', favoritos_check),
     path('libros/<int:libro_id>/favorito/toggle/', favoritos_toggle),
 
+
     # ===== Solicitudes de intercambio =====
     path('solicitudes/crear/', crear_solicitud_intercambio, name='solicitud_crear'),
     path('solicitudes/recibidas/', listar_solicitudes_recibidas, name='solicitudes_recibidas'),
@@ -85,6 +86,8 @@ urlpatterns = [
     path('intercambios/<int:intercambio_id>/cancelar/', cancelar_intercambio, name='cancelar_intercambio'),
     path('intercambios/<int:intercambio_id>/calificar/', calificar_intercambio, name='calificar_intercambio'),
     path('intercambios/<int:intercambio_id>/mi-calificacion/', mi_calificacion, name='mi_calificacion'),
+    path("solicitudes/resumen/", views.resumen_solicitudes, name="solicitudes-resumen"),
+    path("solicitudes/marcar-listado-visto/", views.marcar_listado_solicitudes_visto, name="solicitudes-marcar-visto"),
 
     # ===== Puntos de encuentro =====
     path('puntos-encuentro/', puntos_encuentro, name='puntos_encuentro'),

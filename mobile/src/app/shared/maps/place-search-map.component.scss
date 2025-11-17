@@ -1,0 +1,4 @@
+.psm-root { --h: 320px; display: grid; gap: 8px; }
+.row-actions { display: flex; gap: 8px; align-items: center; padding: 0 8px; }
+.map { height: var(--h); width: 100%; border-radius: 12px; overflow: hidden; }
+.footer { padding: 0 8px 8px; }

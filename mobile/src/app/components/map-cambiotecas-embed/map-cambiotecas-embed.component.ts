@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { IonicModule, SegmentCustomEvent } from '@ionic/angular';
 import { ConfigService } from 'src/app/core/services/config.service';
@@ -9,7 +9,7 @@ import { environment } from 'src/environments/environment';
 
 type LatLng = google.maps.LatLngLiteral;
 type LayerKey = 'cambiotecas' | 'duoc' | 'bibliotecas' | 'metro';
-interface Pin { name: string; address?: string; position: LatLng; }
+export interface Pin { name: string; address?: string; position: LatLng; }
 
 @Component({
   selector: 'app-map-cambiotecas-embed',
@@ -20,6 +20,8 @@ interface Pin { name: string; address?: string; position: LatLng; }
 })
 export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
   @Input() height = 420;
+  @Input() selectable = false;                 // 👈 nuevo
+  @Output() pick = new EventEmitter<Pin>();    // 👈 nuevo
   @ViewChild('mapEl', { static: true }) mapEl!: ElementRef<HTMLDivElement>;
 
   activeLayer: LayerKey = 'cambiotecas';
@@ -36,12 +38,10 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
     metro: 'assets/data/Estaciones_actuales_Metro_de_Santiago.csv',
   } as const;
 
-   constructor(private cfg: ConfigService) {} 
+  constructor(private cfg: ConfigService) {} 
 
   async ngOnInit() {
-    // 1) carga config desde backend
     await this.cfg.load();
-    // 2) setear key de Maps en runtime (ya no desde environment)
     setOptions({ key: this.cfg.config.mapsApiKey, v: 'weekly' });
 
     const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
@@ -61,9 +61,6 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() { this.clearMarkers(); }
 
-  
-
-  // ✅ Tipado correcto + fallback
   async onSegmentChange(ev: SegmentCustomEvent) {
     const value = (ev.detail?.value ?? 'cambiotecas') as LayerKey;
     if (value === this.activeLayer) return;
@@ -111,7 +108,12 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
         title: p.name,
         icon: this.iconFor(this.activeLayer),
       });
+
       marker.addListener('click', () => {
+        if (this.selectable) {
+          this.pick.emit(p); // 👈 modo selección: devolvemos el pin
+          return;
+        }
         const dest = `${p.position.lat},${p.position.lng}`;
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
         this.info.setContent(`
@@ -123,6 +125,7 @@ export class MapCambiotecasEmbedComponent implements OnInit, OnDestroy {
         `);
         this.info.open(this.map, marker);
       });
+
       this.markers.push(marker);
     }
   }

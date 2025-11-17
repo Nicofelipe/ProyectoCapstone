@@ -214,4 +214,35 @@ ion-menu .menu-footer ion-toolbar {
   --color: var(--logout2-text);
 }
 
+
+/* Puntito rojo de notificaciones */
+.notif-dot {
+  display: inline-block;
+  min-width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #eb445a; // color danger de Ionic
+}
+
+/* En el menú lateral, que no rompa el layout */
+ion-menu .notif-dot {
+  margin-left: 8px;
+}
+
+/* Wrapper del icono en la tabbar */
+.tab-icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Puntito sobre el icono de la tabbar */
+.mobile-tabbar .notif-dot--tab {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 1px #fff; // para que se vea bien sobre fondo blanco
+}
+
 .footer-visible .mobile-tabbar .add { transform: translate(-50%, -60%); }

@@ -34,12 +34,16 @@
 
       <!-- 👇 añade la clase para estilizar ítems -->
       <ion-list class="menu-list">
-        
+
 
         <ion-menu-toggle auto-hide="true" *ngFor="let it of visibleItems">
           <ion-item [routerLink]="it.redirectTo" routerLinkActive="activated" detail="true">
             <ion-icon slot="start" [name]="it.icon"></ion-icon>
             <ion-label>{{ it.name }}</ion-label>
+
+            <!-- 🔴 Puntito en el menú solo para "Solicitudes" -->
+            <span *ngIf="it.redirectTo === '/requests' && hasPendingRequests" class="notif-dot">
+            </span>
           </ion-item>
         </ion-menu-toggle>
 
@@ -93,9 +97,14 @@
     <!-- ===== Barra inferior móvil (solo logueado) ===== -->
     <nav class="mobile-tabbar" *ngIf="user">
 
-      <button class="tab" routerLink="/books" aria-label="Libros">
+      <button class="tab" routerLink="/home" aria-label="Libros">
+        <ion-icon name="home-outline"></ion-icon>
+        <span>Inicio</span>
+      </button>
+
+      <button class="tab" routerLink="/my-books" aria-label="Perfil">
         <ion-icon name="book-outline"></ion-icon>
-        <span>Libros</span>
+        <span>Mis Libros</span>
       </button>
 
       <!-- Botón central: Añadir libro -->
@@ -103,19 +112,22 @@
         <ion-icon name="add"></ion-icon>
       </button>
 
+
       <button class="tab" routerLink="/requests" aria-label="Solicitudes">
-        <ion-icon name="swap-horizontal-outline"></ion-icon>
+        <span class="tab-icon-wrapper">
+          <ion-icon name="swap-horizontal-outline"></ion-icon>
+
+          <!-- 🔴 Puntito rojo sobre el ícono -->
+          <span *ngIf="hasPendingRequests" class="notif-dot notif-dot--tab">
+          </span>
+        </span>
+
         <span>Solicitudes</span>
       </button>
 
-      <button class="tab" routerLink="/profile" aria-label="Perfil">
-        <ion-icon name="person-circle-outline"></ion-icon>
-        <span>Perfil</span>
-      </button>
-
-      <button class="tab" routerLink="/chats" aria-label="Chats">
-        <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
-        <span>Chats</span>
+      <button class="tab" routerLink="/profile" aria-label="Chats">
+        <ion-icon name="person-outline"></ion-icon>
+        <span>Mi Perfil</span>
       </button>
     </nav>
 
