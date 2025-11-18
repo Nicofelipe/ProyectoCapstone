@@ -28,8 +28,9 @@ export const environment = {
   },
 ],
 };
-/*
 
+
+/*
 export const environment = {
   production: false,
   apiUrl: 'https://proyectocapstone-production.up.railway.app', // backend base

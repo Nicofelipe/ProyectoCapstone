@@ -39,6 +39,8 @@ const routes: Routes = [
   //MAPAS
   { path: 'cambiotecas',loadComponent: () => import('./pages/cambiotecas/map-cambiotecas.page').then(m => m.MapCambiotecasPage),},
   { path: 'about/map', loadComponent: () => import('./pages/cambiotecas/map-cambiotecas.page').then(m => m.MapCambiotecasPage) },
+
+  { path: 'admin/dashboard', loadComponent: () => import('./pages/admin/admin-dashboard.page').then(m => m.AdminDashboardPage),},
   { path: '**', redirectTo: 'home' },
 ];
 

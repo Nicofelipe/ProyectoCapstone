@@ -11,7 +11,7 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { AuthService } from './core/services/auth.service';
 
-
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 // 👉 Factory que devuelve una función que retorna una Promise
 export function initAuth(auth: AuthService) {
   // IMPORTANTE: debe devolver una función sincrónica que retorne la Promise
@@ -38,6 +38,7 @@ export function initAuth(auth: AuthService) {
       deps: [AuthService],
       multi: true,
     },
+     provideCharts(withDefaultRegisterables()),
     // 👇 agrega esto
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
   ],

@@ -12,7 +12,7 @@ import { IntercambiosService } from './core/services/intercambios.service';
 
 
 
-interface MenuItem { icon: string; name: string; redirectTo: string; }
+interface MenuItem { icon: string; name: string; redirectTo: string; adminOnly?: boolean }
 
 @Component({
   selector: 'app-root',
@@ -50,20 +50,48 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     { name: 'Chats', redirectTo: '/chats', icon: 'chatbubbles-outline' },
     { name: 'Ubicaciones', redirectTo: '/cambiotecas', icon: 'map-outline' },
     { name: 'Sobre nosotros', redirectTo: '/about', icon: 'information-circle-outline' },
+
+    // 🔥 Zona admin (solo se verá si user.es_admin === true)
+    { name: 'Panel Admin', redirectTo: '/admin/dashboard', icon: 'stats-chart-outline', adminOnly: true },
+    { name: 'Usuarios', redirectTo: '/admin/users', icon: 'people-outline', adminOnly: true },
   ];
 
   get visibleItems(): MenuItem[] {
-    if (this.user) {
-      // Logueado: ocultar login/registro
-      return this.items.filter(i =>
-        !['/auth/login', '/auth/register'].includes(i.redirectTo)
-      );
+    // 🛡️ MODO ADMIN: solo navegación de administración + cosas neutrales
+    if (this.user?.es_admin) {
+      const allowedForAdmin = new Set<string>([
+        '/home',
+        '/cambiotecas',
+        '/about',
+        '/catalog',
+        '/admin/dashboard',
+        '/admin/users',
+      ]);
+
+      return this.items.filter(it => allowedForAdmin.has(it.redirectTo));
     }
-    // Invitado: ocultar todo lo que requiere sesión
-    return this.items.filter(i =>
-      !['/profile', '/favorites', '/my-books', '/requests', '/chats']
-        .includes(i.redirectTo)
-    );
+
+    // 👤 MODO USUARIO NORMAL (lo que ya tenías, con adminOnly oculto)
+    return this.items.filter(it => {
+      // 1) Items SOLO para admin
+      if (it.adminOnly) {
+        return false; // usuario normal no los ve
+      }
+
+      // 2) Si hay usuario logueado
+      if (this.user) {
+        // Ocultar login/registro si ya inició sesión
+        if (['/auth/login', '/auth/register'].includes(it.redirectTo)) return false;
+        return true;
+      }
+
+      // 3) Invitado: ocultar secciones que requieren sesión
+      if (['/profile', '/favorites', '/my-books', '/requests', '/chats'].includes(it.redirectTo)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
 
@@ -106,7 +134,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
- ngAfterViewInit() {
+  ngAfterViewInit() {
     this.io = new IntersectionObserver(
       ([entry]) => {
         this.footerVisible = !!entry?.isIntersecting;
@@ -128,7 +156,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  
+
   private normalizeEstado(s: string) {
     return (s ?? '')
       .toString()

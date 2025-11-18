@@ -1,0 +1,322 @@
+
+<!-- src/app/pages/admin-dashboard/admin-dashboard.page.html -->
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Panel de administración</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="loadData($event)">
+    <ion-refresher-content
+      pullingText="Desliza para actualizar"
+      refreshingSpinner="crescent"
+      refreshingText="Actualizando…">
+    </ion-refresher-content>
+  </ion-refresher>
+
+  <ng-container *ngIf="loading(); else loaded">
+    <div class="center-spinner">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  </ng-container>
+
+  <ng-template #loaded>
+    <div *ngIf="data() as d; else noData" class="dashboard-wrapper">
+      <!-- Tarjetas principales -->
+      <div class="stats-grid">
+        <ion-card class="stat-card">
+          <ion-card-header>
+            <ion-card-subtitle>Usuarios activos</ion-card-subtitle>
+            <ion-card-title>{{ d.total_users }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <p class="kpi-note">
+              <ion-icon name="trending-up-outline" color="success"></ion-icon>
+              Nuevos últimos 7 días: {{ d.new_users_last_7_days }}
+            </p>
+          </ion-card-content>
+        </ion-card>
+
+        <ion-card class="stat-card">
+          <ion-card-header>
+            <ion-card-subtitle>Libros totales</ion-card-subtitle>
+            <ion-card-title>{{ d.total_books }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <p class="kpi-note">
+              <ion-icon name="checkmark-circle-outline" color="primary"></ion-icon>
+              Disponibles: {{ d.available_books }}
+            </p>
+          </ion-card-content>
+        </ion-card>
+
+        <ion-card class="stat-card">
+          <ion-card-header>
+            <ion-card-subtitle>Intercambios completados</ion-card-subtitle>
+            <ion-card-title>{{ d.intercambios_completados }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <p class="kpi-note">
+              <ion-icon name="time-outline" color="tertiary"></ion-icon>
+              Últimos 7 días: {{ d.exchanges_stats.last_7_days }}
+            </p>
+          </ion-card-content>
+        </ion-card>
+
+        <ion-card class="stat-card">
+          <ion-card-header>
+            <ion-card-subtitle>Intercambios en progreso</ion-card-subtitle>
+            <ion-card-title>{{ d.intercambios_pendientes }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <p class="kpi-note">
+              <ion-icon name="sync-outline" color="warning"></ion-icon>
+              Total activos ahora mismo
+            </p>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Bloque: Libros subidos -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Libros subidos</ion-card-title>
+          <ion-card-subtitle>Resumen rápido</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="kpi-row">
+            <div class="kpi-box">
+              <h3>Este mes</h3>
+              <p>{{ d.books_stats.current_month }}</p>
+            </div>
+            <div class="kpi-box">
+              <h3>Mes anterior</h3>
+              <p>{{ d.books_stats.previous_month }}</p>
+            </div>
+            <div class="kpi-box">
+              <h3>Últimos 7 días</h3>
+              <p>{{ d.books_stats.last_7_days }}</p>
+            </div>
+            <div class="kpi-box">
+              <h3>Últimos 30 días</h3>
+              <p>{{ d.books_stats.last_30_days }}</p>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Gráficos de línea -->
+      <div class="chart-grid">
+        <!-- Línea: Libros últimos 30 días -->
+        <ion-card class="chart-card">
+          <ion-card-header>
+            <ion-card-title>Libros subidos (últimos 30 días)</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <canvas
+              baseChart
+              [data]="booksLineData"
+              [options]="booksLineOptions"
+              [type]="'line'">
+            </canvas>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Línea: Intercambios últimos 30 días -->
+        <ion-card class="chart-card">
+          <ion-card-header>
+            <ion-card-title>Intercambios (últimos 30 días)</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <canvas
+              baseChart
+              [data]="exchangesLineData"
+              [options]="exchangesLineOptions"
+              [type]="'line'">
+            </canvas>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Gráficos de distribución -->
+      <div class="chart-grid">
+        <!-- Doughnut: Usuarios por región -->
+        <ion-card class="chart-card">
+          <ion-card-header>
+            <ion-card-title>Distribución de usuarios por región</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <canvas
+              baseChart
+              [data]="usersRegionPieData"
+              [options]="usersRegionPieOptions"
+              [type]="'doughnut'">
+            </canvas>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Barras: Géneros más publicados -->
+        <ion-card class="chart-card">
+          <ion-card-header>
+            <ion-card-title>Géneros más publicados</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <canvas
+              baseChart
+              [data]="genresBarData"
+              [options]="genresBarOptions"
+              [type]="'bar'">
+            </canvas>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Detalle: Usuarios por región -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Usuarios por región (detalle)</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="bar-chart" *ngIf="d.users_by_region?.length; else noRegions">
+            <div class="bar-row" *ngFor="let r of d.users_by_region">
+              <span class="bar-label">{{ r.region }}</span>
+              <div class="bar-track">
+                <div class="bar-fill" [style.width.%]="(r.total / d.total_users) * 100"></div>
+              </div>
+              <span class="bar-value">{{ r.total }}</span>
+            </div>
+          </div>
+          <ng-template #noRegions>
+            <p class="empty-state">No hay datos de regiones disponibles.</p>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Detalle: Géneros más intercambiados -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Géneros más intercambiados</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="bar-chart" *ngIf="d.genres_exchanges?.length; else noGenresExch">
+            <div class="bar-row" *ngFor="let g of d.genres_exchanges; let i = index">
+              <span class="bar-label">{{ g.genre }}</span>
+              <div class="bar-track">
+                <div class="bar-fill accent" [style.width.%]="(g.total / d.genres_exchanges[0].total) * 100"></div>
+              </div>
+              <span class="bar-value">{{ g.total }}</span>
+            </div>
+          </div>
+          <ng-template #noGenresExch>
+            <p class="empty-state">No hay datos de géneros intercambiados.</p>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Top usuarios -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="trophy-outline"></ion-icon>
+            Usuarios más activos
+          </ion-card-title>
+          <ion-card-subtitle>Por intercambios completados</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-list *ngIf="d.top_active_users?.length; else noActiveUsers" lines="full">
+            <ion-item *ngFor="let u of d.top_active_users; let i = index">
+              <ion-avatar slot="start" class="rank-avatar">
+                <span>{{ i + 1 }}</span>
+              </ion-avatar>
+              <ion-label>
+                <h3>{{ u.nombre_usuario || 'Usuario' }}</h3>
+                <p>{{ u.email }}</p>
+              </ion-label>
+              <ion-badge slot="end" color="primary">
+                {{ u.total_completed_exchanges }}
+              </ion-badge>
+            </ion-item>
+          </ion-list>
+          <ng-template #noActiveUsers>
+            <p class="empty-state">No hay usuarios con intercambios completados.</p>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="book-outline"></ion-icon>
+            Usuarios que más publican
+          </ion-card-title>
+          <ion-card-subtitle>Por cantidad de libros</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-list *ngIf="d.top_publishers?.length; else noPublishers" lines="full">
+            <ion-item *ngFor="let u of d.top_publishers; let i = index">
+              <ion-avatar slot="start" class="rank-avatar">
+                <span>{{ i + 1 }}</span>
+              </ion-avatar>
+              <ion-label>
+                <h3>{{ u.id_usuario__nombre_usuario || 'Usuario' }}</h3>
+                <p>{{ u.id_usuario__email }}</p>
+              </ion-label>
+              <ion-badge slot="end" color="secondary">
+                {{ u.books_count }} libros
+              </ion-badge>
+            </ion-item>
+          </ion-list>
+          <ng-template #noPublishers>
+            <p class="empty-state">No hay datos de publicaciones aún.</p>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="star-outline"></ion-icon>
+            Usuarios mejor calificados
+          </ion-card-title>
+          <ion-card-subtitle>Por promedio de calificación</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-list *ngIf="d.top_rated_users?.length; else noRatings" lines="full">
+            <ion-item *ngFor="let u of d.top_rated_users; let i = index">
+              <ion-avatar slot="start" class="rank-avatar gold">
+                <span>{{ i + 1 }}</span>
+              </ion-avatar>
+              <ion-label>
+                <h3>{{ u.id_usuario_calificado__nombre_usuario || 'Usuario' }}</h3>
+                <p>{{ u.id_usuario_calificado__email }}</p>
+                <p class="ratings-count">{{ u.total }} calificaciones</p>
+              </ion-label>
+              <div slot="end" class="rating-badge">
+                <ion-icon name="star" color="warning"></ion-icon>
+                <span>{{ u.promedio | number: '1.1-1' }}</span>
+              </div>
+            </ion-item>
+          </ion-list>
+          <ng-template #noRatings>
+            <p class="empty-state">Todavía no hay calificaciones suficientes.</p>
+          </ng-template>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </ng-template>
+
+  <ng-template #noData>
+    <div class="no-data">
+      <ion-icon name="alert-circle-outline" size="large"></ion-icon>
+      <p>No hay datos para mostrar.</p>
+      <ion-button (click)="loadData()" fill="outline">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Reintentar
+      </ion-button>
+    </div>
+  </ng-template>
+</ion-content>

@@ -1,0 +1,346 @@
+/* src/app/pages/admin-dashboard/admin-dashboard.page.scss */
+
+.dashboard-wrapper {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.center-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 64px 0;
+}
+
+// Tarjetas principales de stats
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.stat-card {
+  ion-card-header {
+    padding-bottom: 8px;
+  }
+
+  ion-card-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+  }
+
+  ion-card-subtitle {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  ion-card-content {
+    padding-top: 0;
+  }
+}
+
+// Notas pequeñas en tarjetas
+.kpi-note {
+  font-size: 13px;
+  color: var(--ion-color-medium);
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+// KPIs de libros subidos
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .kpi-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.kpi-box {
+  background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.08) 0%, rgba(var(--ion-color-primary-rgb), 0.02) 100%);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ion-color-medium);
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+  }
+}
+
+// Grid para organizar los gráficos
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// Cards de chart
+.chart-card {
+  ion-card-header {
+    padding-bottom: 8px;
+  }
+
+  ion-card-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  ion-card-content {
+    position: relative;
+    height: 280px;
+    padding: 8px 16px 16px;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+// Barras horizontales (detalle)
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 50px;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  .bar-row {
+    grid-template-columns: 160px 1fr 60px;
+  }
+}
+
+.bar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--ion-text-color);
+}
+
+.bar-track {
+  background: rgba(var(--ion-color-medium-rgb), 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+  height: 10px;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+  transition: width 0.5s ease;
+  min-width: 4px;
+
+  &.accent {
+    background: linear-gradient(90deg, var(--ion-color-tertiary) 0%, var(--ion-color-tertiary-shade) 100%);
+  }
+}
+
+.bar-value {
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+}
+
+// Listas de top usuarios
+ion-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  ion-icon {
+    font-size: 20px;
+    color: var(--ion-color-primary);
+  }
+}
+
+.rank-avatar {
+  --border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+
+  &.gold {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+}
+
+.ratings-count {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}
+
+.rating-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(var(--ion-color-warning-rgb), 0.15);
+  padding: 6px 10px;
+  border-radius: 8px;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  span {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ion-color-warning-shade);
+  }
+}
+
+ion-badge {
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+// Estados vacíos
+.empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--ion-color-medium);
+  font-style: italic;
+}
+
+.no-data {
+  padding: 48px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+
+  ion-icon {
+    font-size: 48px;
+    color: var(--ion-color-medium);
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin: 0;
+  }
+}
+
+// Mejoras generales para cards
+ion-card {
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin: 0;
+
+  ion-card-header {
+    padding: 16px 16px 8px;
+  }
+
+  ion-card-content {
+    padding: 8px 16px 16px;
+  }
+}
+
+// Items de lista
+ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --background: transparent;
+
+  ion-label {
+    h3 {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    p {
+      font-size: 13px;
+    }
+  }
+}
+
+// Animaciones suaves
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-wrapper > * {
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+.dashboard-wrapper > *:nth-child(1) { animation-delay: 0.05s; }
+.dashboard-wrapper > *:nth-child(2) { animation-delay: 0.1s; }
+.dashboard-wrapper > *:nth-child(3) { animation-delay: 0.15s; }
+.dashboard-wrapper > *:nth-child(4) { animation-delay: 0.2s; }
+.dashboard-wrapper > *:nth-child(5) { animation-delay: 0.25s; }
+.dashboard-wrapper > *:nth-child(6) { animation-delay: 0.3s; }
+.dashboard-wrapper > *:nth-child(7) { animation-delay: 0.35s; }
+.dashboard-wrapper > *:nth-child(8) { animation-delay: 0.4s; }

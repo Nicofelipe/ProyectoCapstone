@@ -20,6 +20,19 @@ from .serializers import (
     ForgotPasswordSerializer, ResetPasswordSerializer,
     UsuarioLiteSerializer, UsuarioSummarySerializer
 )
+from django.db.models.functions import Coalesce, TruncDay, TruncMonth
+from collections import defaultdict
+from django.db.models import (
+ OuterRef, Subquery, IntegerField, Value
+)
+from market.models import (
+    Libro,
+    Intercambio,
+    Calificacion,
+    SolicitudIntercambio,
+    Genero,
+)
+
 
 from market.models import Libro, Intercambio, Calificacion
 
@@ -644,60 +657,333 @@ def change_password_view(request):
 @permission_classes([IsCambiotecaAdmin])
 def admin_dashboard_summary(request):
     """
-    Estadísticas para dashboard admin.
-    Evitamos depender de related_names no confirmados.
+    Estadísticas completas para dashboard admin.
+    - Totales de usuarios/libros/intercambios
+    - Series por día/mes
+    - Top usuarios (más intercambios, más libros, mejor calificados, más solicitudes)
+    - Géneros más publicados e intercambiados
     """
-    total_users = Usuario.objects.count()
-    seven_days_ago = timezone.now() - timedelta(days=7)
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+
+    # ---------- USUARIOS ----------
+    # Solo usuarios activos que no son admin
+    total_users = Usuario.objects.filter(activo=True, es_admin=False).count()
+
     try:
-        new_users_last_7_days = Usuario.objects.filter(fecha_registro__gte=seven_days_ago).count()
+        new_users_last_7_days = Usuario.objects.filter(
+            fecha_registro__gte=seven_days_ago,
+            activo=True,
+            es_admin=False,
+        ).count()
     except Exception:
         new_users_last_7_days = 0
 
-    total_books = Libro.objects.count()
-    completed_exchanges = Intercambio.objects.filter(estado_intercambio='Completado').count()
-    in_progress_exchanges = Intercambio.objects.filter(estado_intercambio='Aceptado').count()
-
-    # Top 5 usuarios por intercambios completados (como solicitante o receptor)
-    top_active_users = (
-        Usuario.objects
-        .annotate(
-            completed_as_solicitante=Count(
-                'id_usuario',
-                filter=Q(
-                    id_usuario=F('id_usuario'),
-                    solicitudes_hechas__intercambio__estado_intercambio='Completado'
-                ),
-            ),
-            completed_as_receptor=Count(
-                'id_usuario',
-                filter=Q(
-                    id_usuario=F('id_usuario'),
-                    solicitudes_recibidas__intercambio__estado_intercambio='Completado'
-                ),
-            )
-        )
-        .annotate(total_completed_exchanges=F('completed_as_solicitante') + F('completed_as_receptor'))
-        .filter(total_completed_exchanges__gt=0)
-        .order_by('-total_completed_exchanges')
-        .values('nombre_usuario', 'email', 'total_completed_exchanges')[:5]
-    )
-
+    # Usuarios por región
     users_by_region = (
         Usuario.objects
+        .filter(activo=True, es_admin=False)
         .values('comuna__id_region__nombre')
         .annotate(total=Count('id_usuario'))
         .order_by('-total')
     )
 
+    # ---------- LIBROS ----------
+    total_books = Libro.objects.count()
+    available_books = Libro.objects.filter(disponible=True).count()
+
+    books_last_7_days = Libro.objects.filter(fecha_subida__gte=seven_days_ago).count()
+    books_last_30_days = Libro.objects.filter(fecha_subida__gte=thirty_days_ago).count()
+
+    # Mes actual y mes anterior (para comparar libros subidos)
+    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if now.month == 1:
+        prev_month_year = now.year - 1
+        prev_month = 12
+    else:
+        prev_month_year = now.year
+        prev_month = now.month - 1
+
+    previous_month_start = current_month_start.replace(
+        year=prev_month_year,
+        month=prev_month,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    books_current_month = Libro.objects.filter(
+        fecha_subida__gte=current_month_start
+    ).count()
+
+    books_previous_month = Libro.objects.filter(
+        fecha_subida__gte=previous_month_start,
+        fecha_subida__lt=current_month_start,
+    ).count()
+
+    # Libros por día (últimos 30 días)
+    books_by_day_30_qs = (
+        Libro.objects
+        .filter(fecha_subida__gte=thirty_days_ago)
+        .annotate(d=TruncDay('fecha_subida'))
+        .values('d')
+        .annotate(total=Count('id_libro'))
+        .order_by('d')
+    )
+    books_by_day_30 = [
+        {"date": row["d"].date().isoformat(), "total": row["total"]}
+        for row in books_by_day_30_qs
+    ]
+
+    # Libros por mes (todo el histórico, tú puedes cortar a 12 en el front)
+    books_by_month_qs = (
+        Libro.objects
+        .annotate(m=TruncMonth('fecha_subida'))
+        .values('m')
+        .annotate(total=Count('id_libro'))
+        .order_by('m')
+    )
+    books_by_month = [
+        {"month": row["m"].date().isoformat(), "total": row["total"]}
+        for row in books_by_month_qs
+    ]
+
+    # ---------- INTERCAMBIOS ----------
+    completed_exchanges = (
+        Intercambio.objects
+        .filter(estado_intercambio='Completado')
+        .distinct()
+        .count()
+    )
+    in_progress_exchanges = (
+        Intercambio.objects
+        .filter(estado_intercambio='Aceptado')
+        .distinct()
+        .count()
+    )
+
+    exchanges_last_7_days = (
+        Intercambio.objects
+        .filter(
+            estado_intercambio='Completado',
+            fecha_completado__gte=seven_days_ago,
+        )
+        .count()
+    )
+
+    # Intercambios completados por día (últimos 30 días)
+    exchanges_by_day_30_qs = (
+        Intercambio.objects
+        .filter(
+            estado_intercambio='Completado',
+            fecha_completado__isnull=False,
+            fecha_completado__gte=thirty_days_ago,
+        )
+        .annotate(d=TruncDay('fecha_completado'))
+        .values('d')
+        .annotate(total=Count('id_intercambio'))
+        .order_by('d')
+    )
+    exchanges_by_day_30 = [
+        {"date": row["d"].date().isoformat(), "total": row["total"]}
+        for row in exchanges_by_day_30_qs
+    ]
+
+    # Intercambios completados por mes
+    exchanges_by_month_qs = (
+        Intercambio.objects
+        .filter(
+            estado_intercambio='Completado',
+            fecha_completado__isnull=False,
+        )
+        .annotate(m=TruncMonth('fecha_completado'))
+        .values('m')
+        .annotate(total=Count('id_intercambio'))
+        .order_by('m')
+    )
+    exchanges_by_month = [
+        {"month": row["m"].date().isoformat(), "total": row["total"]}
+        for row in exchanges_by_month_qs
+    ]
+
+    # ---------- TOP USUARIOS ----------
+    # Top activos (más intercambios completados = solicitante + receptor)
+    completed_as_solicitante_sq = (
+        Intercambio.objects
+        .filter(
+            estado_intercambio='Completado',
+            id_solicitud__id_usuario_solicitante_id=OuterRef('id_usuario'),
+        )
+        .values('id_solicitud__id_usuario_solicitante_id')
+        .annotate(c=Count('id_intercambio', distinct=True))
+        .values('c')[:1]
+    )
+
+    completed_as_receptor_sq = (
+        Intercambio.objects
+        .filter(
+            estado_intercambio='Completado',
+            id_solicitud__id_usuario_receptor_id=OuterRef('id_usuario'),
+        )
+        .values('id_solicitud__id_usuario_receptor_id')
+        .annotate(c=Count('id_intercambio', distinct=True))
+        .values('c')[:1]
+    )
+
+    top_active_users_qs = (
+        Usuario.objects
+        .filter(activo=True, es_admin=False)
+        .annotate(
+            completed_as_solicitante=Coalesce(
+                Subquery(completed_as_solicitante_sq, output_field=IntegerField()),
+                Value(0),
+            ),
+            completed_as_receptor=Coalesce(
+                Subquery(completed_as_receptor_sq, output_field=IntegerField()),
+                Value(0),
+            ),
+        )
+        .annotate(
+            total_completed_exchanges=F('completed_as_solicitante') + F('completed_as_receptor')
+        )
+        .filter(total_completed_exchanges__gt=0)
+        .order_by('-total_completed_exchanges', 'nombre_usuario')[:5]
+        .values('id_usuario', 'nombre_usuario', 'email', 'total_completed_exchanges')
+    )
+
+    # Top publicadores (más libros subidos)
+    top_publishers_qs = (
+        Libro.objects
+        .values(
+            'id_usuario__id_usuario',
+            'id_usuario__nombre_usuario',
+            'id_usuario__email',
+        )
+        .annotate(books_count=Count('id_libro', distinct=True))
+        .order_by('-books_count')[:5]
+    )
+
+    # Top solicitantes (más solicitudes de intercambio creadas)
+    top_requesters_qs = (
+        SolicitudIntercambio.objects
+        .values(
+            'id_usuario_solicitante__id_usuario',
+            'id_usuario_solicitante__nombre_usuario',
+            'id_usuario_solicitante__email',
+        )
+        .annotate(solicitudes_count=Count('id_solicitud', distinct=True))
+        .order_by('-solicitudes_count')[:5]
+    )
+
+    # Top mejor calificados
+    top_rated_qs = (
+        Calificacion.objects
+        .values(
+            'id_usuario_calificado__id_usuario',
+            'id_usuario_calificado__nombre_usuario',
+            'id_usuario_calificado__email',
+        )
+        .annotate(
+            promedio=Avg('puntuacion'),
+            total=Count('id_clasificacion'),
+        )
+        .filter(total__gte=1)
+        .order_by('-promedio', '-total')[:5]
+    )
+
+    # ---------- GÉNEROS ----------
+    # Géneros más publicados (por cantidad de libros)
+    genres_books_qs = (
+        Libro.objects
+        .values('id_genero__nombre')
+        .annotate(total=Count('id_libro'))
+        .order_by('-total')[:10]
+    )
+    genres_books = [
+        {
+            "genre": row["id_genero__nombre"] or "Sin género",
+            "total": row["total"],
+        }
+        for row in genres_books_qs
+    ]
+
+    # Géneros más intercambiados (sumando libro deseado + libro ofrecido)
+    genres_exchanges_counter = defaultdict(int)
+
+    # Por libro deseado
+    q_deseado = (
+        Intercambio.objects
+        .filter(estado_intercambio='Completado')
+        .values('id_solicitud__id_libro_deseado__id_genero__nombre')
+        .annotate(total=Count('id_intercambio', distinct=True))
+    )
+    for row in q_deseado:
+        name = row['id_solicitud__id_libro_deseado__id_genero__nombre'] or "Sin género"
+        genres_exchanges_counter[name] += row['total']
+
+    # Por libro ofrecido
+    q_ofrecido = (
+        Intercambio.objects
+        .filter(estado_intercambio='Completado')
+        .values('id_libro_ofrecido_aceptado__id_genero__nombre')
+        .annotate(total=Count('id_intercambio', distinct=True))
+    )
+    for row in q_ofrecido:
+        name = row['id_libro_ofrecido_aceptado__id_genero__nombre'] or "Sin género"
+        genres_exchanges_counter[name] += row['total']
+
+    genres_exchanges = [
+        {"genre": name, "total": total}
+        for name, total in genres_exchanges_counter.items()
+    ]
+    genres_exchanges.sort(key=lambda x: x["total"], reverse=True)
+    genres_exchanges = genres_exchanges[:10]
+
+    # ---------- ARMAR RESPUESTA ----------
     return Response({
+        # Totales "simples" que ya usas
         "total_users": total_users,
         "new_users_last_7_days": new_users_last_7_days,
         "total_books": total_books,
         "completed_exchanges": completed_exchanges,
         "in_progress_exchanges": in_progress_exchanges,
+
+        # Usuarios por región (para tu gráfico de barras horizontal)
         "users_by_region": list(users_by_region),
-        "top_active_users": list(top_active_users),
+
+        # Stats de libros (para comparaciones mes actual / mes pasado, etc.)
+        "books_stats": {
+            "total": total_books,
+            "available": available_books,
+            "last_7_days": books_last_7_days,
+            "last_30_days": books_last_30_days,
+            "current_month": books_current_month,
+            "previous_month": books_previous_month,
+            "by_day_last_30": books_by_day_30,
+            "by_month": books_by_month,
+        },
+
+        # Stats de intercambios
+        "exchanges_stats": {
+            "completed_total": completed_exchanges,
+            "in_progress_total": in_progress_exchanges,
+            "last_7_days": exchanges_last_7_days,
+            "by_day_last_30": exchanges_by_day_30,
+            "by_month": exchanges_by_month,
+        },
+
+        # Top usuarios
+        "top_active_users": list(top_active_users_qs),
+        "top_publishers": list(top_publishers_qs),
+        "top_requesters": list(top_requesters_qs),
+        "top_rated_users": list(top_rated_qs),
+
+        # Géneros
+        "genres_books": genres_books,
+        "genres_exchanges": genres_exchanges,
     })
 
 @api_view(['GET'])
