@@ -1,4 +1,4 @@
-
+/*
 export const environment = {
   production: true,
   apiUrl: 'https://proyectocapstone-production.up.railway.app', // backend base
@@ -13,8 +13,9 @@ export const environment = {
     { id: 2, name: 'Cambioteca El Abrazo', address: 'Pioneros Evangelistas 3031, Maipú, RM', position: { lat: -33.52873470047291, lng: -70.7943495751906 } },
   ],
 };
+*/
 
-/*
+
 
 export const environment = {
   production: true,
@@ -41,4 +42,3 @@ export const environment = {
   },
 ],
 };
-*/

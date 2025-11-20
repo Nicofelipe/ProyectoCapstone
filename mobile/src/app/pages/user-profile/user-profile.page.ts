@@ -49,8 +49,12 @@ export class UserProfilePage implements OnInit {
   history = signal<PublicIntercambio[]>([]);
   tab = signal<'info' | 'books' | 'history'>('info');
 
-  // 👉 la hago pública para poder usarla desde el template si hace falta
-  normalizeMedia(rel?: string | null): string | null {
+  fallbackHref = '/';
+  readonly FALLBACK_BOOK = '/assets/librodefecto.png';
+  readonly FALLBACK_AVATAR = '/assets/avatardefecto.jpg';
+
+  // ⭐ Normaliza cualquier ruta relativa tipo "media/...", "books/..." a URL absoluta
+  private normalizeMedia(rel?: string | null): string | null {
     const raw = (rel || '').trim();
     if (!raw) return null;
 
@@ -65,21 +69,18 @@ export class UserProfilePage implements OnInit {
       path = path.substring('media/'.length);
     }
 
-    const base =
-      (environment as any).mediaBase ||
-      `${environment.apiUrl.replace(/\/+$/, '')}/media`;
+    const base = (environment.mediaBase ||
+      `${environment.apiUrl.replace(/\/+$/, '')}/media`
+    ).replace(/\/+$/, '');
 
-    const cleanBase = String(base).replace(/\/+$/, '');
-    return `${cleanBase}/${path}`;
+    return `${base}/${path}`;
   }
-
-  fallbackHref = '/';
 
   stars = computed(() => {
     const avg = this.prof()?.rating_avg ?? 0;
     const out: string[] = [];
     for (let i = 1; i <= 5; i++) {
-      out.push(avg >= i ? 'star' : avg >= i - 0.5 ? 'star-half' : 'star-outline');
+      out.push(avg >= i ? 'star' : (avg >= i - 0.5 ? 'star-half' : 'star-outline'));
     }
     return out;
   });
@@ -93,7 +94,7 @@ export class UserProfilePage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    this.fallbackHref = (history.state && (history.state as any).from) || '/';
+    this.fallbackHref = (history.state && history.state.from) || '/';
     const id = Number(this.route.snapshot.paramMap.get('id'));
     if (!id) {
       this.router.navigateByUrl('/');
@@ -107,51 +108,45 @@ export class UserProfilePage implements OnInit {
         this.auth.getUserIntercambios(id),
       ]);
 
-      // 👇 Normalizamos las URLs de imágenes
-      const normProf: PublicProfile = {
+      // 🧑‍🎨 Normalizar avatar (por si viene relativo)
+      const avatarNorm = this.normalizeMedia(profile?.avatar_url ?? null);
+      this.prof.set({
         ...profile,
-        avatar_url: this.normalizeMedia(profile?.avatar_url),
-      };
+        avatar_url: avatarNorm ?? profile?.avatar_url ?? null,
+      });
 
-      const normBooks: PublicBook[] = (books || []).map((b: any) => ({
-        ...b,
-        portada: this.normalizeMedia(b.portada),
-      }));
+      // 📚 Normalizar portadas de libros (tome lo que venga: portada, first_image, cover...)
+      const normalizedBooks: PublicBook[] = (books || []).map((b: any) => {
+        const rawPortada =
+          b.portada ||
+          b.first_image ||       // muy probable que venga así desde el backend
+          b.cover ||
+          b.cover_url ||
+          b.imagen ||
+          null;
 
-      const normHistory: PublicIntercambio[] = (history || []).map((it: any) => ({
-        ...it,
-        libro_deseado: it.libro_deseado
-          ? {
-              ...it.libro_deseado,
-              portada: this.normalizeMedia(it.libro_deseado.portada),
-            }
-          : it.libro_deseado,
-        libro_ofrecido: it.libro_ofrecido
-          ? {
-              ...it.libro_ofrecido,
-              portada: this.normalizeMedia(it.libro_ofrecido.portada),
-            }
-          : it.libro_ofrecido,
-      }));
+        return {
+          ...b,
+          portada: this.normalizeMedia(rawPortada),
+        };
+      });
+      this.books.set(normalizedBooks);
 
-      this.prof.set(normProf);
-      this.books.set(normBooks);
-      this.history.set(normHistory);
+      // Historial (si luego quieres mostrar imágenes, aquí también podrías normalizar)
+      this.history.set(history || []);
     } catch (e: any) {
-      (
-        await this.toast.create({
-          message: e?.error?.detail || 'No se pudo cargar el perfil',
-          duration: 1700,
-          color: 'danger',
-        })
-      ).present();
+      (await this.toast.create({
+        message: e?.error?.detail || 'No se pudo cargar el perfil',
+        duration: 1700,
+        color: 'danger',
+      })).present();
       this.router.navigateByUrl('/');
     } finally {
       this.loading.set(false);
     }
   }
 
-  // request-detail.page.ts
+  // Navegación desde otras páginas
   goUser(uid: number | null | undefined) {
     if (!uid) return;
     this.router.navigate(['/users', uid], { state: { from: this.router.url } });
@@ -166,10 +161,10 @@ export class UserProfilePage implements OnInit {
   }
 
   onBookImgError(ev: Event) {
-    const img = ev.target as HTMLImageElement;
-    if (img && !img.src.includes('/assets/librodefecto.png')) {
-      img.src = '/assets/librodefecto.png';
-    }
+    const img = ev.target as HTMLImageElement | null;
+    if (!img) return;
+    if (img.src.includes(this.FALLBACK_BOOK)) return;
+    img.src = this.FALLBACK_BOOK;
   }
 
   goRatings() {

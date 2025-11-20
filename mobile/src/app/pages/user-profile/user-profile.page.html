@@ -16,10 +16,7 @@
       <div class="header">
         <ion-avatar class="avatar">
           <!-- 👇 Usamos la URL normalizada -->
-          <img
-            [src]="u.avatar_url || '/assets/avatardefecto.jpg'"
-            alt="avatar"
-          />
+          <img [src]="u.avatar_url || '/assets/avatardefecto.jpg'" alt="avatar" />
         </ion-avatar>
         <div class="id">
           <h2>{{ u.nombre_completo }}</h2>
@@ -39,11 +36,7 @@
             </div>
 
             <!-- Calificación -->
-            <div
-              class="metric"
-              [class.clickable]="u.rating_count > 0"
-              (click)="goRatings()"
-            >
+            <div class="metric" [class.clickable]="u.rating_count > 0" (click)="goRatings()">
               <div class="stars">
                 <ion-icon *ngFor="let s of stars()" [name]="s"></ion-icon>
               </div>
@@ -98,12 +91,7 @@
         <ion-list *ngIf="books()?.length; else nobooks" class="books-list" lines="full">
           <ion-item button detail="true" *ngFor="let b of books()" (click)="goBook(b.id)">
             <ion-avatar slot="start" class="thumb">
-              <!-- 👇 ahora esta portada ya viene normalizada en TS -->
-              <img
-                [src]="b.portada || '/assets/librodefecto.png'"
-                alt="portada"
-                (error)="onBookImgError($event)"
-              />
+              <img [src]="b.portada || FALLBACK_BOOK" alt="portada" (error)="onBookImgError($event)" />
             </ion-avatar>
             <ion-label>
               <div class="body">
@@ -125,6 +113,7 @@
           <p class="muted">Este usuario no tiene libros disponibles.</p>
         </ng-template>
       </div>
+
 
       <!-- HISTORY (de momento sin imágenes, pero ya tienes portada normalizada por si quieres mostrarlas) -->
       <div class="tab-pane" *ngIf="tab()==='history'">
