@@ -96,39 +96,55 @@
 
     <!-- ===== Barra inferior móvil (solo logueado) ===== -->
     <nav class="mobile-tabbar" *ngIf="user">
+      <!-- 👤 Barra para usuario normal -->
+      <ng-container *ngIf="!user?.es_admin; else adminTabbar">
+        <button class="tab" routerLink="/home" aria-label="Inicio">
+          <ion-icon name="home-outline"></ion-icon>
+          <span>Inicio</span>
+        </button>
 
-      <button class="tab" routerLink="/home" aria-label="Libros">
-        <ion-icon name="home-outline"></ion-icon>
-        <span>Inicio</span>
-      </button>
+        <button class="tab" routerLink="/my-books" aria-label="Mis Libros">
+          <ion-icon name="book-outline"></ion-icon>
+          <span>Mis Libros</span>
+        </button>
 
-      <button class="tab" routerLink="/my-books" aria-label="Perfil">
-        <ion-icon name="book-outline"></ion-icon>
-        <span>Mis Libros</span>
-      </button>
+        <!-- Botón central: Añadir libro -->
+        <button class="add" (click)="onAddBook()" aria-label="Añadir libro">
+          <ion-icon name="add"></ion-icon>
+        </button>
 
-      <!-- Botón central: Añadir libro -->
-      <button class="add" (click)="onAddBook()" aria-label="Añadir libro">
-        <ion-icon name="add"></ion-icon>
-      </button>
-
-
-      <button class="tab" routerLink="/requests" aria-label="Solicitudes">
-        <span class="tab-icon-wrapper">
-          <ion-icon name="swap-horizontal-outline"></ion-icon>
-
-          <!-- 🔴 Puntito rojo sobre el ícono -->
-          <span *ngIf="hasPendingRequests" class="notif-dot notif-dot--tab">
+        <button class="tab" routerLink="/requests" aria-label="Solicitudes">
+          <span class="tab-icon-wrapper">
+            <ion-icon name="swap-horizontal-outline"></ion-icon>
+            <!-- 🔴 Puntito rojo sobre el ícono -->
+            <span *ngIf="hasPendingRequests" class="notif-dot notif-dot--tab"></span>
           </span>
-        </span>
+          <span>Solicitudes</span>
+        </button>
 
-        <span>Solicitudes</span>
-      </button>
+        <button class="tab" routerLink="/profile" aria-label="Mi Perfil">
+          <ion-icon name="person-outline"></ion-icon>
+          <span>Mi Perfil</span>
+        </button>
+      </ng-container>
 
-      <button class="tab" routerLink="/profile" aria-label="Chats">
-        <ion-icon name="person-outline"></ion-icon>
-        <span>Mi Perfil</span>
-      </button>
+      <!-- 🛡️ Barra especial para ADMIN -->
+      <ng-template #adminTabbar>
+        <button class="tab" routerLink="/admin/dashboard" aria-label="Dashboard">
+          <ion-icon name="stats-chart-outline"></ion-icon>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="tab" routerLink="/admin/users" aria-label="Usuarios">
+          <ion-icon name="people-outline"></ion-icon>
+          <span>Usuarios</span>
+        </button>
+
+        <button class="tab" routerLink="/admin/reports" aria-label="Reportes">
+          <ion-icon name="flag-outline"></ion-icon>
+          <span>Reportes</span>
+        </button>
+      </ng-template>
     </nav>
 
 

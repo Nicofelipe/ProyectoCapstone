@@ -32,15 +32,32 @@ class UsuarioLiteSerializer(serializers.ModelSerializer):
 
 
 class UsuarioSummarySerializer(serializers.ModelSerializer):
-
     es_admin = serializers.SerializerMethodField()
+
     class Meta:
         model = Usuario
         fields = (
             "id_usuario", "rut", "nombre_usuario", "email",
             "nombres", "apellido_paterno", "apellido_materno",
             "imagen_perfil", "activo", "verificado",
+            "es_admin",   # 👈 AHORA sí va en fields
         )
+
+    def get_es_admin(self, obj):
+        """
+        Devuelve True si el usuario es admin.
+        Usa el campo booleano es_admin de tu modelo
+        y, opcionalmente, la lista de correos admin.
+        """
+        # 1) Campo booleano de la tabla usuario
+        if hasattr(obj, "es_admin"):
+            return bool(obj.es_admin)
+
+        # 2) (Opcional) respaldo por correo configurado en settings
+        from django.conf import settings
+        admin_emails = getattr(settings, "CAMBIOTECA_ADMIN_EMAILS", [])
+        email = (obj.email or "").lower()
+        return any(email == a.lower() for a in admin_emails)
 
 
 class LoginSerializer(serializers.Serializer):

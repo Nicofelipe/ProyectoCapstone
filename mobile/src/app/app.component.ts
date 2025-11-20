@@ -38,6 +38,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
 
+      get isAdmin(): boolean {
+  return !!this.user?.es_admin;
+}
+
   items: MenuItem[] = [
     { name: 'Inicio', redirectTo: '/home', icon: 'home-outline' },
     { name: 'Mi Perfil', redirectTo: '/profile', icon: 'person-circle-outline' },
@@ -62,8 +66,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.user?.es_admin) {
       const allowedForAdmin = new Set<string>([
         '/home',
-        '/cambiotecas',
-        '/about',
         '/catalog',
         '/admin/dashboard',
         '/admin/users',
