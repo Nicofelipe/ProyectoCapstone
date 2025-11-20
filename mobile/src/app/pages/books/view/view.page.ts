@@ -15,6 +15,7 @@ import {
   IonFabButton,
   IonHeader,
   IonIcon,
+  IonInput,
   IonItem,
   IonLabel,
   IonList,
@@ -25,13 +26,17 @@ import {
   IonRadioGroup,
   IonRefresher,
   IonRefresherContent,
+  IonSelect,
+  IonSelectOption,
   IonSpinner,
+  IonTextarea,
   IonTitle,
   IonToolbar,
   ToastController,
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 
+import ApiService from 'src/app/core/services/api.service';
 import { FavoritesService } from 'src/app/core/services/favorites.service';
 import { AuthService, MeUser } from '../../../core/services/auth.service';
 import {
@@ -78,14 +83,15 @@ type OwnerLite = {
     IonRadio,
     IonRefresher,
     IonRefresherContent,
+    IonInput,
+    IonTextarea,
+    IonSelect,
+    IonSelectOption,
   ],
   templateUrl: './view.page.html',
   styleUrls: ['./view.page.scss'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-
-
-
 export class ViewPage implements OnInit {
   // ===== Estado principal =====
   book: Libro | null = null;
@@ -106,8 +112,13 @@ export class ViewPage implements OnInit {
   // Guard de negocio para "puedo solicitar este libro?"
   guard: SolicitarGuard | null = null;
 
+  // Vista de moderación (admin) => ?admin=1
+  isAdminView = false;
 
-
+  reportOpen = false;
+  reportMotivo: string | null = null;
+  reportDescripcion = '';
+  sendingReport = false;
 
   fallbackHref = '/';
   isFav = false;
@@ -146,10 +157,17 @@ export class ViewPage implements OnInit {
     private toast: ToastController,
     private location: Location,
     private favs: FavoritesService,
-  ) { }
+    private api: ApiService,
+  ) {}
 
   // ===== Ciclo de vida =====
   async ngOnInit() {
+    // Flag de vista admin (?admin=1)
+    this.isAdminView = this.route.snapshot.queryParamMap.get('admin') === '1';
+    this.route.queryParamMap.subscribe((params) => {
+      this.isAdminView = params.get('admin') === '1';
+    });
+
     await this.auth.restoreSession();
     this.me = this.auth.user;
 
@@ -158,8 +176,8 @@ export class ViewPage implements OnInit {
       await this.load(id);
     }
 
-    // Estado inicial de favoritos
-    if (this.me && id) {
+    // Estado inicial de favoritos (solo en vista normal)
+    if (!this.isAdminView && this.me && id) {
       const seq = ++this.favReqSeq;
       this.isFavBusy = true;
 
@@ -191,6 +209,7 @@ export class ViewPage implements OnInit {
 
   // ===== Favoritos =====
   async toggleFav() {
+    if (this.isAdminView) return; // admin no usa fav
     if (!this.me || !this.book || this.isMine() || this.isFavBusy) return;
 
     if (!this.book.disponible) {
@@ -209,7 +228,7 @@ export class ViewPage implements OnInit {
     const seq = ++this.favReqSeq;
 
     this.favs.toggle(this.book.id!, this.me.id).subscribe({
-      next: () => { },
+      next: () => {},
       error: () => {
         if (seq === this.favReqSeq) this.isFav = prev;
       },
@@ -237,7 +256,7 @@ export class ViewPage implements OnInit {
   }
 
   // ===== Carga principal =====
-    private async load(id: number) {
+  private async load(id: number) {
     this.booksSvc.get(id).subscribe({
       next: async (b: Libro) => {
         this.book = b;
@@ -281,8 +300,9 @@ export class ViewPage implements OnInit {
           },
         });
 
-        // Si estoy logueado: cargar mis libros, ocupados, guard y solicitudes
-        if (this.me) {
+        // Si estoy logueado y NO estoy en vista admin:
+        // cargar mis libros, ocupados, guard y solicitudes
+        if (this.me && !this.isAdminView) {
           const mine = await firstValueFrom(this.booksSvc.getMine(this.me.id));
           this.myBooks = mine || [];
           this.currentMyBook = this.myBooks.find((mb) => mb.id === id) || null;
@@ -314,9 +334,10 @@ export class ViewPage implements OnInit {
             this.guard = null;
           }
 
-          // 💡 SIEMPRE: ver si hay solicitudes RECIBIDAS que incluyan ESTE libro conmigo
+          // Siempre: ver si hay solicitudes RECIBIDAS que incluyan ESTE libro conmigo
           await this.loadIncomingForThisBook(id);
         } else {
+          // En vista admin (o sin sesión) no queremos mostrar CTA de intercambio
           this.guard = null;
           this.currentMyBook = null;
           this.myBooks = [];
@@ -344,7 +365,6 @@ export class ViewPage implements OnInit {
     });
   }
 
-
   private async loadOccupiedIds(userId: number) {
     try {
       const ids = await firstValueFrom(this.interSvc.librosOfrecidosOcupados(userId));
@@ -361,8 +381,8 @@ export class ViewPage implements OnInit {
 
   // Decide si un libro puede aparecer en el modal de oferta
   private isBookOfferable(m: MyBookCard, currentBookId: number): boolean {
-    if (m.id === currentBookId) return false;     // no ofrecer el mismo libro
-    if (!m.disponible) return false;             // debe estar disponible
+    if (m.id === currentBookId) return false; // no ofrecer el mismo libro
+    if (!m.disponible) return false; // debe estar disponible
     if (this.occupiedIds.has(m.id)) return false; // no puede estar ocupado
 
     const estado = (m.intercambio_estado || '').toLowerCase();
@@ -436,9 +456,9 @@ export class ViewPage implements OnInit {
 
         const desiredTitle = String(
           r?.libro_mio ??
-          r?.libro_mio_titulo ??
-          r?.libro_deseado?.titulo ??
-          '',
+            r?.libro_mio_titulo ??
+            r?.libro_deseado?.titulo ??
+            '',
         )
           .trim()
           .toLowerCase();
@@ -447,9 +467,9 @@ export class ViewPage implements OnInit {
         let offeredId: number | null = null;
         let offeredTitle = String(
           r?.libro_del_otro ??
-          r?.libro_del_otro_titulo ??
-          r?.libro_ofrecido_titulo ??
-          '',
+            r?.libro_del_otro_titulo ??
+            r?.libro_ofrecido_titulo ??
+            '',
         )
           .trim()
           .toLowerCase();
@@ -471,8 +491,8 @@ export class ViewPage implements OnInit {
 
           offeredTitle = String(
             ofr0?.libro_ofrecido?.titulo ??
-            ofr0?.titulo_libro_ofrecido ??
-            offeredTitle,
+              ofr0?.titulo_libro_ofrecido ??
+              offeredTitle,
           )
             .trim()
             .toLowerCase();
@@ -620,16 +640,15 @@ export class ViewPage implements OnInit {
 
   // ===== Modal selección (1 libro) =====
   openOffer() {
+    if (this.isAdminView) return;
     this.selectedId = null;
     this.offerOpen = true;
   }
 
   openImageViewer(startIndex: number) {
-    // Abre el modal de visor y deja seleccionado el índice actual
     this.imageViewerOpen = true;
     this.currentIndex = startIndex;
 
-    // Pequeño delay para que el modal monte el DOM y luego scrollear
     setTimeout(() => {
       const el = document.querySelector(
         '.image-viewer-modal .viewer-gallery',
@@ -638,7 +657,7 @@ export class ViewPage implements OnInit {
       if (el) {
         el.scrollTo({
           left: startIndex * el.clientWidth,
-          behavior: 'instant' as ScrollBehavior, // algunos navegadores aceptan 'auto' si te da problema
+          behavior: 'instant' as ScrollBehavior,
         });
       }
     }, 0);
@@ -647,17 +666,18 @@ export class ViewPage implements OnInit {
   closeImageViewer() {
     this.imageViewerOpen = false;
   }
+
   closeOffer() {
     this.offerOpen = false;
   }
 
   async sendOffer() {
+    if (this.isAdminView) return;
     if (!this.me || !this.book) return;
     if (!this.selectedId) return;
 
     const chosen = this.myAvailBooks.find((b) => b.id === this.selectedId) || null;
 
-    // Seguridad extra: por si cambió algo en backend
     if (!chosen || !chosen.disponible || this.isOccupied(this.selectedId)) {
       (await this.toast.create({
         message: 'El libro seleccionado no está disponible para intercambio.',
@@ -708,6 +728,7 @@ export class ViewPage implements OnInit {
 
   // ===== Aceptar / Rechazar rápido solicitud entrante =====
   async quickAccept() {
+    if (this.isAdminView) return;
     if (!this.me || !this.book || !this.incoming) {
       this.goRequests();
       return;
@@ -731,7 +752,11 @@ export class ViewPage implements OnInit {
           handler: async () => {
             try {
               await firstValueFrom(
-                this.interSvc.aceptarSolicitud(solicitudId, this.me!.id, libroOfrecidoId),
+                this.interSvc.aceptarSolicitud(
+                  solicitudId,
+                  this.me!.id,
+                  libroOfrecidoId,
+                ),
               );
               (await this.toast.create({
                 message: 'Solicitud aceptada ✅',
@@ -757,6 +782,7 @@ export class ViewPage implements OnInit {
   }
 
   async quickReject() {
+    if (this.isAdminView) return;
     if (!this.me || !this.book || !this.incoming) {
       this.goRequests();
       return;
@@ -778,7 +804,9 @@ export class ViewPage implements OnInit {
           role: 'destructive',
           handler: async () => {
             try {
-              await firstValueFrom(this.interSvc.rechazarSolicitud(solicitudId, this.me!.id));
+              await firstValueFrom(
+                this.interSvc.rechazarSolicitud(solicitudId, this.me!.id),
+              );
               (await this.toast.create({
                 message: 'Solicitud rechazada ❌',
                 duration: 1800,
@@ -800,5 +828,99 @@ export class ViewPage implements OnInit {
     });
 
     await alert.present();
+  }
+
+  openReport() {
+    if (this.isAdminView) return; // admin no reporta desde aquí
+    if (!this.me || this.isMine() || !this.book) return;
+    this.reportOpen = true;
+  }
+
+  closeReport() {
+    this.reportOpen = false;
+    this.reportMotivo = null;
+    this.reportDescripcion = '';
+  }
+
+  async sendReport() {
+    if (this.isAdminView) return;
+    if (!this.me || !this.book || !this.reportMotivo) return;
+
+    this.sendingReport = true;
+    try {
+      await firstValueFrom(
+        this.api.post(`/api/libros/${this.book.id}/reportar/`, {
+          motivo: this.reportMotivo,
+          descripcion: this.reportDescripcion?.trim() || null,
+        }),
+      );
+
+      (await this.toast.create({
+        message: 'Reporte enviado. Gracias por avisar 🙌',
+        duration: 2000,
+        color: 'success',
+      })).present();
+
+      this.closeReport();
+    } catch (e: any) {
+      const msg = e?.error?.detail || 'No se pudo enviar el reporte';
+      (await this.toast.create({
+        message: msg,
+        duration: 2000,
+        color: 'danger',
+      })).present();
+    } finally {
+      this.sendingReport = false;
+    }
+  }
+
+  // ===== Moderación admin: dar de baja libro =====
+  async confirmarDarBaja() {
+    if (!this.book) return;
+
+    const alert = await this.alert.create({
+      header: 'Dar de baja publicación',
+      message:
+        'Esto ocultará el libro del catálogo y bloqueará nuevos intercambios. ¿Confirmas?',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        {
+          text: 'Dar de baja',
+          role: 'destructive',
+          handler: () => this.adminDarBaja(),
+        },
+      ],
+    });
+
+    await alert.present();
+  }
+
+  private async adminDarBaja() {
+    if (!this.book) return;
+
+    try {
+      // ⚠️ AJUSTA ESTA URL AL ENDPOINT REAL QUE TENGAS EN EL BACKEND
+      await firstValueFrom(
+        this.api.patch(`/api/admin/libros/${this.book.id}/dar-baja/`, {
+          // Si tu backend requiere campos específicos, los agregas aquí,
+          // por ejemplo: status_reason: 'BAJA'
+        }),
+      );
+
+      (await this.toast.create({
+        message: 'Publicación dada de baja.',
+        duration: 2000,
+        color: 'success',
+      })).present();
+
+      await this.load(this.book.id!);
+    } catch (e: any) {
+      const msg = e?.error?.detail || 'No se pudo dar de baja la publicación.';
+      (await this.toast.create({
+        message: msg,
+        duration: 2200,
+        color: 'danger',
+      })).present();
+    }
   }
 }

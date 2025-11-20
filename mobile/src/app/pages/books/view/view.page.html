@@ -12,30 +12,53 @@
 
 <ion-content [fullscreen]="true">
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
-    <ion-refresher-content pullingText="Desliza para actualizar" refreshingSpinner="crescent"
-      refreshingText="Actualizando…"></ion-refresher-content>
+    <ion-refresher-content
+      pullingText="Desliza para actualizar"
+      refreshingSpinner="crescent"
+      refreshingText="Actualizando…">
+    </ion-refresher-content>
   </ion-refresher>
 
   <ng-container *ngIf="book as b; else loadingTpl">
+
+    <!-- Banner de moderación para admin -->
+    <div *ngIf="isAdminView" class="admin-banner">
+      <ion-icon name="shield-checkmark-outline"></ion-icon>
+      <span>Vista de moderación — sin acciones de intercambio.</span>
+    </div>
+
     <section class="hero">
       <div #gallery class="snap-gallery" (scroll)="onScroll(gallery)">
-        <img *ngFor="let url of imgUrls; let i = index; trackBy: trackByIndex" [src]="url"
-          [alt]="b.titulo || 'Imagen del libro'" (click)="openImageViewer(i)" (error)="onImgError($event)"
+        <img
+          *ngFor="let url of imgUrls; let i = index; trackBy: trackByIndex"
+          [src]="url"
+          [alt]="b.titulo || 'Imagen del libro'"
+          (click)="openImageViewer(i)"
+          (error)="onImgError($event)"
           class="hero-img" />
       </div>
 
-      <ion-fab *ngIf="me && book && !isMine()" class="fav-in-hero">
-        <ion-fab-button size="small" class="fav-btn" [class.fav-on]="isFav"
-          (click)="toggleFav(); $event.stopPropagation()" [disabled]="isFavBusy || !book?.disponible"
+      <!-- FAB de favorito solo en vista normal -->
+      <ion-fab *ngIf="me && book && !isMine() && !isAdminView" class="fav-in-hero">
+        <ion-fab-button
+          size="small"
+          class="fav-btn"
+          [class.fav-on]="isFav"
+          (click)="toggleFav(); $event.stopPropagation()"
+          [disabled]="isFavBusy || !book?.disponible"
           aria-label="Favorito">
           <ion-icon [name]="isFav ? 'heart' : 'heart-outline'"></ion-icon>
         </ion-fab-button>
       </ion-fab>
 
       <div class="dots" *ngIf="imgUrls.length > 1">
-        <button type="button" *ngFor="let _ of imgUrls; let i = index; trackBy: trackByIndex"
-          [class.active]="i === currentIndex" (click)="scrollTo(i, gallery)"
-          [attr.aria-label]="'Ir a imagen ' + (i + 1)"></button>
+        <button
+          type="button"
+          *ngFor="let _ of imgUrls; let i = index; trackBy: trackByIndex"
+          [class.active]="i === currentIndex"
+          (click)="scrollTo(i, gallery)"
+          [attr.aria-label]="'Ir a imagen ' + (i + 1)">
+        </button>
       </div>
     </section>
 
@@ -44,7 +67,11 @@
       <p class="subtitle">de {{ b.autor || '—' }}</p>
 
       <div class="owner">
-        <button class="owner-link" type="button" [disabled]="!b.owner_id" (click)="goOwner(b.owner_id)"
+        <button
+          class="owner-link"
+          type="button"
+          [disabled]="!b.owner_id"
+          (click)="goOwner(b.owner_id)"
           [attr.aria-label]="'Ver perfil de ' + (owner?.nombre_usuario || b.owner_nombre || '')">
           <strong class="owner-name">
             @{{ owner?.nombre_usuario || b.owner_nombre || '—' }}
@@ -57,6 +84,14 @@
 
         <span class="owner-note" *ngIf="isMine()">• Es tu libro</span>
         <span class="owner-note" *ngIf="!b.disponible && !isMine()">• No disponible</span>
+      </div>
+
+      <!-- Botón Reportar (solo usuarios logueados, NO dueño y NO admin) -->
+      <div class="report-row" *ngIf="me && !isMine() && !isAdminView">
+        <ion-button size="small" fill="clear" color="danger" (click)="openReport()">
+          <ion-icon name="flag-outline" slot="start"></ion-icon>
+          Reportar publicación
+        </ion-button>
       </div>
 
       <div class="meta-tags-grid">
@@ -99,7 +134,28 @@
       </div>
     </section>
 
-    <div class="cta">
+    <!-- CTA ADMIN: solo en vista de moderación -->
+    <div class="cta admin-cta" *ngIf="isAdminView">
+      <ion-note class="muted">
+        Estás revisando esta publicación como administrador.
+      </ion-note>
+
+      <ion-button expand="block" color="danger" (click)="confirmarDarBaja()">
+        <ion-icon name="ban-outline" slot="start"></ion-icon>
+        Dar de baja publicación
+      </ion-button>
+
+      <ion-button
+        expand="block"
+        fill="outline"
+        color="medium"
+        (click)="goBack()">
+        Volver a reportes
+      </ion-button>
+    </div>
+
+    <!-- CTA SOLO en vista normal (no admin) -->
+    <div class="cta" *ngIf="!isAdminView">
       <ng-container *ngIf="isMine(); else notMine">
         <ion-button expand="block" color="medium" [disabled]="true">
           LIBRO EN PROPIEDAD
@@ -127,35 +183,52 @@
             <ion-button size="small" fill="clear" (click)="goRequests()">
               Ver solicitud
             </ion-button>
-            <ion-button *ngIf="incomingEstadoCanon === 'pendiente'" size="small" color="success"
+            <ion-button
+              *ngIf="incomingEstadoCanon === 'pendiente'"
+              size="small"
+              color="success"
               (click)="quickAccept()">
               Aceptar
             </ion-button>
-            <ion-button *ngIf="incomingEstadoCanon === 'pendiente'" size="small" color="danger" fill="outline"
+            <ion-button
+              *ngIf="incomingEstadoCanon === 'pendiente'"
+              size="small"
+              color="danger"
+              fill="outline"
               (click)="quickReject()">
               Rechazar
             </ion-button>
           </div>
         </div>
 
-        <ion-button expand="block" fill="outline" *ngIf="currentMyBook?.has_requests" (click)="goRequests()">
+        <ion-button
+          expand="block"
+          fill="outline"
+          *ngIf="currentMyBook?.has_requests"
+          (click)="goRequests()">
           Ver solicitudes para este libro
         </ion-button>
       </ng-container>
 
       <ng-template #notMine>
-        <ion-button expand="block" color="medium" [disabled]="true" *ngIf="!b.disponible">
+        <ion-button
+          expand="block"
+          color="medium"
+          [disabled]="true"
+          *ngIf="!b.disponible">
           No disponible
         </ion-button>
 
-        <ion-button expand="block" color="primary" *ngIf="b.disponible && !me" (click)="goLogin()">
+        <ion-button
+          expand="block"
+          color="primary"
+          *ngIf="b.disponible && !me"
+          (click)="goLogin()">
           Iniciar sesión para solicitar
         </ion-button>
 
         <ng-container *ngIf="b.disponible && me">
-          <!-- 💡 CASO CLAVE:
-           Soy el usuario B viendo el libro N del usuario A,
-           y ya hay una SOLICITUD que usa este libro como "libro del otro" conmigo -->
+          <!-- CASO: libro del otro ya usado en solicitud conmigo -->
           <div class="incoming-box" *ngIf="incoming && incomingIsForOtherBook; else normalRequestBlock">
             <p class="incoming-text">
               <ng-container *ngIf="incomingEstadoCanon === 'pendiente'; else acceptedOtherMsg">
@@ -177,11 +250,18 @@
               <ion-button size="small" fill="clear" (click)="goRequests()">
                 Ver solicitud
               </ion-button>
-              <ion-button *ngIf="incomingEstadoCanon === 'pendiente'" size="small" color="success"
+              <ion-button
+                *ngIf="incomingEstadoCanon === 'pendiente'"
+                size="small"
+                color="success"
                 (click)="quickAccept()">
                 Aceptar
               </ion-button>
-              <ion-button *ngIf="incomingEstadoCanon === 'pendiente'" size="small" color="danger" fill="outline"
+              <ion-button
+                *ngIf="incomingEstadoCanon === 'pendiente'"
+                size="small"
+                color="danger"
+                fill="outline"
                 (click)="quickReject()">
                 Rechazar
               </ion-button>
@@ -190,31 +270,44 @@
 
           <!-- CASO NORMAL: no hay solicitud directa conmigo usando este libro -->
           <ng-template #normalRequestBlock>
-
-            <!-- Si el libro está marcado como en negociación pero NO es conmigo,
-             que se muestre como no disponible para terceros -->
-            <ion-button expand="block" color="medium" [disabled]="true"
+            <!-- Libro en negociación con otro -->
+            <ion-button
+              expand="block"
+              color="medium"
+              [disabled]="true"
               *ngIf="b.en_negociacion && !incomingIsForOtherBook; else guardBlock">
               Libro en intercambio, no disponible
             </ion-button>
 
             <ng-template #guardBlock>
-              <ion-button expand="block" color="medium" [disabled]="true" *ngIf="guard && !guard.allowed">
+              <ion-button
+                expand="block"
+                color="medium"
+                [disabled]="true"
+                *ngIf="guard && !guard.allowed">
                 {{ guard.reason || 'No puedes solicitar este libro' }}
               </ion-button>
 
-              <ion-button expand="block" fill="outline"
+              <ion-button
+                expand="block"
+                fill="outline"
                 *ngIf="guard && !guard.allowed && guard.reason === 'Ya tienes una solicitud pendiente/aceptada'"
                 (click)="goRequests()">
                 Ver mis solicitudes
               </ion-button>
 
-              <ion-button expand="block" color="medium" [disabled]="true"
+              <ion-button
+                expand="block"
+                color="medium"
+                [disabled]="true"
                 *ngIf="guard?.allowed && !hasOfferableBooks()">
                 No tienes libros disponibles para intercambiar
               </ion-button>
 
-              <ion-button expand="block" color="primary" *ngIf="guard?.allowed && hasOfferableBooks()"
+              <ion-button
+                expand="block"
+                color="primary"
+                *ngIf="guard?.allowed && hasOfferableBooks()"
                 (click)="openOffer()">
                 Proponer intercambio
               </ion-button>
@@ -224,6 +317,7 @@
       </ng-template>
     </div>
 
+    <!-- MODAL: Seleccionar libro para ofrecer -->
     <ion-modal [isOpen]="offerOpen" (didDismiss)="closeOffer()">
       <ng-template>
         <ion-header>
@@ -238,8 +332,11 @@
         <ion-content>
           <ion-radio-group [(ngModel)]="selectedId">
             <ion-list inset="true" class="offer-list">
-              <ion-item *ngFor="let m of myAvailBooks; trackBy: trackByBookId" class="offer-item"
-                [class.offer-item-selected]="selectedId === m.id" lines="none">
+              <ion-item
+                *ngFor="let m of myAvailBooks; trackBy: trackByBookId"
+                class="offer-item"
+                [class.offer-item-selected]="selectedId === m.id"
+                lines="none">
                 <ion-radio slot="start" [value]="m.id"></ion-radio>
 
                 <ion-avatar slot="start" class="thumb">
@@ -264,7 +361,10 @@
             <ion-note class="muted">
               Libro seleccionado: {{ selectedId ? '1' : '0' }}/1
             </ion-note>
-            <ion-button expand="block" (click)="sendOffer()" [disabled]="sending || !selectedId">
+            <ion-button
+              expand="block"
+              (click)="sendOffer()"
+              [disabled]="sending || !selectedId">
               Enviar solicitud
               <ion-spinner slot="end" *ngIf="sending"></ion-spinner>
             </ion-button>
@@ -273,7 +373,81 @@
       </ng-template>
     </ion-modal>
 
-    <ion-modal [isOpen]="imageViewerOpen" (didDismiss)="closeImageViewer()" cssClass="image-viewer-modal">
+    <!-- MODAL: Reportar publicación -->
+    <ion-modal [isOpen]="reportOpen" (didDismiss)="closeReport()">
+      <ng-template>
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>Reportar publicación</ion-title>
+            <ion-buttons slot="end">
+              <ion-button (click)="closeReport()">Cerrar</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content>
+          <ion-list inset="true">
+            <ion-item>
+              <ion-label position="stacked">Motivo</ion-label>
+              <ion-select
+                interface="popover"
+                placeholder="Selecciona un motivo"
+                [(ngModel)]="reportMotivo"
+                name="reportMotivo">
+                <ion-select-option value="contenido_inadecuado">
+                  Contenido inadecuado
+                </ion-select-option>
+                <ion-select-option value="informacion_falsa">
+                  Información falsa o engañosa
+                </ion-select-option>
+                <ion-select-option value="spam">
+                  Spam o promoción
+                </ion-select-option>
+                <ion-select-option value="estafa">
+                  Posible estafa
+                </ion-select-option>
+                <ion-select-option value="otro">
+                  Otro
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
+
+            <ion-item lines="none">
+              <ion-label position="stacked">Detalles (opcional)</ion-label>
+              <ion-textarea
+                autoGrow="true"
+                rows="3"
+                maxlength="500"
+                placeholder="Cuéntanos brevemente qué ocurre con esta publicación…"
+                [(ngModel)]="reportDescripcion"
+                name="reportDescripcion">
+              </ion-textarea>
+            </ion-item>
+          </ion-list>
+
+          <div class="cta-in-modal">
+            <ion-button expand="block" fill="clear" (click)="closeReport()">
+              Cancelar
+            </ion-button>
+
+            <ion-button
+              expand="block"
+              color="danger"
+              (click)="sendReport()"
+              [disabled]="sendingReport || !reportMotivo">
+              Enviar reporte
+              <ion-spinner slot="end" *ngIf="sendingReport"></ion-spinner>
+            </ion-button>
+          </div>
+        </ion-content>
+      </ng-template>
+    </ion-modal>
+
+    <!-- MODAL: Visor de imágenes -->
+    <ion-modal
+      [isOpen]="imageViewerOpen"
+      (didDismiss)="closeImageViewer()"
+      cssClass="image-viewer-modal">
       <ng-template>
         <ion-header translucent="true">
           <ion-toolbar>
@@ -288,14 +462,21 @@
 
         <ion-content [fullscreen]="true" class="image-viewer-content">
           <div #viewerGallery class="viewer-gallery" (scroll)="onScroll(viewerGallery)">
-            <img *ngFor="let url of imgUrls; let i = index; trackBy: trackByIndex" [src]="url"
-              [alt]="book?.titulo || 'Imagen del libro'" (error)="onImgError($event)" />
+            <img
+              *ngFor="let url of imgUrls; let i = index; trackBy: trackByIndex"
+              [src]="url"
+              [alt]="book?.titulo || 'Imagen del libro'"
+              (error)="onImgError($event)" />
           </div>
 
           <div class="viewer-dots" *ngIf="imgUrls.length > 1">
-            <button type="button" *ngFor="let _ of imgUrls; let i = index; trackBy: trackByIndex"
-              [class.active]="i === currentIndex" (click)="scrollTo(i, viewerGallery)"
-              [attr.aria-label]="'Ir a imagen ' + (i + 1)"></button>
+            <button
+              type="button"
+              *ngFor="let _ of imgUrls; let i = index; trackBy: trackByIndex"
+              [class.active]="i === currentIndex"
+              (click)="scrollTo(i, viewerGallery)"
+              [attr.aria-label]="'Ir a imagen ' + (i + 1)">
+            </button>
           </div>
         </ion-content>
       </ng-template>

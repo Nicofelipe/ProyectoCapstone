@@ -4,6 +4,7 @@ import { Component, computed, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { environment } from 'src/environments/environment';
 
 type PublicProfile = {
     id: number;
@@ -42,6 +43,27 @@ export class UserProfilePage implements OnInit {
     history = signal<PublicIntercambio[]>([]);
     tab = signal<'info' | 'books' | 'history'>('info');
 
+
+    private normalizeMedia(rel?: string | null): string | null {
+        const raw = (rel || '').trim();
+        if (!raw) return null;
+
+        // Si ya es absoluta, la dejamos tal cual
+        if (/^https?:\/\//i.test(raw)) return raw;
+
+        // Quitamos / iniciales
+        let path = raw.replace(/^\/+/, '');
+
+        // Si viene como "media/xxx", se lo sacamos para no duplicar
+        if (path.startsWith('media/')) {
+            path = path.substring('media/'.length);
+        }
+
+        const base = (environment.mediaBase || `${environment.apiUrl.replace(/\/+$/, '')}/media`).replace(/\/+$/, '');
+        return `${base}/${path}`;
+    }
+
+
     fallbackHref = '/';
 
     stars = computed(() => {
@@ -56,7 +78,7 @@ export class UserProfilePage implements OnInit {
         private router: Router,
         private auth: AuthService,
         private toast: ToastController,
-        private location: Location,  
+        private location: Location,
     ) { }
 
     async ngOnInit() {
@@ -89,26 +111,34 @@ export class UserProfilePage implements OnInit {
     }
 
     goBack() {
-  if (window.history.length > 1) {
-    this.location.back();
-  } else {
-    this.router.navigateByUrl(this.fallbackHref);
-  }
-}
+        if (window.history.length > 1) {
+            this.location.back();
+        } else {
+            this.router.navigateByUrl(this.fallbackHref);
+        }
+    }
 
- goRatings() {
-    const u = this.prof();
-    if (!u) return;
+    onBookImgError(ev: Event) {
+        const img = ev.target as HTMLImageElement;
+        if (img && !img.src.includes('/assets/librodefecto.png')) {
+            img.src = '/assets/librodefecto.png';
+        }
+    }
 
-    this.router.navigate(
-      ['/users', u.id, 'ratings'],
-      {
-        queryParams: {
-          name: u.nombre_completo || u.email,
-        },
-      }
-    );
-  }
+
+    goRatings() {
+        const u = this.prof();
+        if (!u) return;
+
+        this.router.navigate(
+            ['/users', u.id, 'ratings'],
+            {
+                queryParams: {
+                    name: u.nombre_completo || u.email,
+                },
+            }
+        );
+    }
 
     goBook(id?: number | null) { if (id) this.router.navigate(['/books', id]); }
 }

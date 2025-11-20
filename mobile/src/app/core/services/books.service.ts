@@ -8,6 +8,11 @@ export interface Genero {
   nombre: string;
 }
 
+export interface ReportePayload {
+  motivo: string;
+  descripcion?: string;
+}
+
 export interface MyBookCard {
   id: number;
   titulo: string;
@@ -377,6 +382,10 @@ export class BooksService {
     return this.api.get<BookByTitleItem[]>('/api/libros/by-title/', {
       params: { title },
     });
+  }
+  
+  reportBook(libroId: number, payload: ReportePayload) {
+    return this.api.post(`/api/libros/${libroId}/reportar/`, payload);
   }
 
   // ===== (Legacy) crear intercambio directo =====

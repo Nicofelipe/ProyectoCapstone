@@ -5,7 +5,7 @@ from django.conf import settings
 
 from .models import (
     Libro, ImagenLibro, Genero, SolicitudIntercambio, SolicitudOferta,
-    PuntoEncuentro, PropuestaEncuentro, Intercambio
+    PuntoEncuentro, PropuestaEncuentro, Intercambio, ReportePublicacion
 )
 from core.serializers import UsuarioLiteSerializer
 from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO
@@ -370,3 +370,122 @@ def media_abs(request, rel: str | None = None) -> str:
         pass
     return url_path
 
+class ReportePublicacionSerializer(serializers.ModelSerializer):
+    """
+    Serializer “normal” para el usuario (front móvil/web).
+    """
+    libro_titulo = serializers.CharField(source="id_libro.titulo", read_only=True)
+    libro_autor = serializers.CharField(source="id_libro.autor", read_only=True)
+    reportador_nombre = serializers.CharField(
+        source="id_usuario_reportador.nombre_usuario",
+        read_only=True,
+    )
+
+    # 👇 NUEVO: info del estado del libro
+    libro_disponible = serializers.BooleanField(
+        source="id_libro.disponible",
+        read_only=True,
+    )
+    libro_status_reason = serializers.SerializerMethodField()
+    libro_status_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReportePublicacion
+        fields = [
+            "id_reporte",
+            "id_libro",
+            "libro_titulo",
+            "libro_autor",
+            "id_usuario_reportador",
+            "reportador_nombre",
+            "motivo",
+            "descripcion",
+            "estado",
+            "creado_en",
+            "revisado_en",
+            "comentario_admin",
+            # 👇 NUEVOS
+            "libro_disponible",
+            "libro_status_reason",
+            "libro_status_label",
+        ]
+        read_only_fields = [
+            "estado",
+            "creado_en",
+            "revisado_en",
+            "comentario_admin",
+            "libro_disponible",
+            "libro_status_reason",
+            "libro_status_label",
+        ]
+
+    def get_libro_status_reason(self, obj):
+        # Devuelve OWNER / BAJA / COMPLETADO o None
+        sr = getattr(getattr(obj, "id_libro", None), "status_reason", None)
+        sr = (sr or "").upper()
+        return sr or None
+
+    def get_libro_status_label(self, obj):
+        """
+        Texto “bonito” para mostrar en un chip/etiqueta.
+        """
+        code = self.get_libro_status_reason(obj)
+        if code == "BAJA":
+            return "Libro dado de baja"
+        if code == "COMPLETADO":
+            return "Intercambio completado"
+        if code == "OWNER":
+            return "No disponible por el dueño"
+        return None
+
+
+class AdminReportePublicacionSerializer(serializers.ModelSerializer):
+    """
+    Serializer para vistas de ADMIN (dashboard moderación).
+    """
+    libro_titulo = serializers.CharField(source="id_libro.titulo", read_only=True)
+    libro_autor = serializers.CharField(source="id_libro.autor", read_only=True)
+    libro_owner_id = serializers.IntegerField(
+        source="id_libro.id_usuario_id",
+        read_only=True,
+    )
+    libro_owner_nombre = serializers.CharField(
+        source="id_libro.id_usuario.nombre_usuario",
+        read_only=True,
+    )
+    reportador_nombre = serializers.CharField(
+        source="id_usuario_reportador.nombre_usuario",
+        read_only=True,
+    )
+    revisor_nombre = serializers.CharField(
+        source="revisado_por.nombre_usuario",
+        read_only=True,
+        allow_null=True,
+    )
+
+    # 👇 NUEVO: info del estado del libro para el admin
+    libro_disponible = serializers.BooleanField(
+        source="id_libro.disponible",
+        read_only=True,
+    )
+    libro_status_reason = serializers.SerializerMethodField()
+    libro_status_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReportePublicacion
+        fields = "__all__"
+
+    def get_libro_status_reason(self, obj):
+        sr = getattr(getattr(obj, "id_libro", None), "status_reason", None)
+        sr = (sr or "").upper()
+        return sr or None
+
+    def get_libro_status_label(self, obj):
+        code = self.get_libro_status_reason(obj)
+        if code == "BAJA":
+            return "Libro dado de baja"
+        if code == "COMPLETADO":
+            return "Intercambio completado"
+        if code == "OWNER":
+            return "No disponible por el dueño"
+        return None

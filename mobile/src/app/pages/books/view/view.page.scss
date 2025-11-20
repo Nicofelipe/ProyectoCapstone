@@ -762,6 +762,17 @@ ion-avatar.thumb {
   font-weight: 600;
 }
 
+.admin-banner {
+  margin: 8px 12px 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #856404;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
 /* Focus accesible mejorado */
 button,
 ion-button,

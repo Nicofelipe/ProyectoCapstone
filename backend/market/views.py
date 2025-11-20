@@ -1,3 +1,5 @@
+
+#market/views.py
 import os
 import uuid
 from collections import defaultdict
@@ -20,19 +22,23 @@ from rest_framework.decorators import action, api_view, permission_classes, pars
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Prefetch
+from core.permissions import IsAdminUser as IsCambiotecaAdmin
 
 from .models import (
     Libro, Genero, Favorito, ImagenLibro, LibroSolicitudesVistas,
     SolicitudIntercambio, SolicitudOferta, Intercambio,
     Conversacion, ConversacionParticipante, ConversacionMensaje,
-    PuntoEncuentro, PropuestaEncuentro, IntercambioCodigo, Calificacion
+    PuntoEncuentro, PropuestaEncuentro, IntercambioCodigo, Calificacion, ReportePublicacion,
 )
 from .serializers import (
     LibroSerializer, GeneroSerializer, SolicitudIntercambioSerializer,
     ProponerEncuentroSerializer, ConfirmarEncuentroSerializer,
-    GenerarCodigoSerializer, CompletarConCodigoSerializer, PuntoEncuentroSerializer
+    GenerarCodigoSerializer, CompletarConCodigoSerializer, PuntoEncuentroSerializer,
+    ReportePublicacionSerializer, AdminReportePublicacionSerializer,
 )
+from .serializers import ReportePublicacionSerializer
 from .constants import SOLICITUD_ESTADO, INTERCAMBIO_ESTADO, MEETING_METHOD, PROPOSAL_STATE, PUNTO_TIPO,STATUS_REASON
 from .helpers_estado import set_owner_unavailable
 
@@ -50,6 +56,42 @@ STATUS_COMPLETADO = "COMPLETADO"
 # =========================
 # Helpers
 # =========================
+def _aplicar_baja_por_moderacion(libro_id: int):
+    """
+    Marca un libro con STATUS_BAJA y cancela lógicamente flujos activos
+    (intercambios aceptados/pendientes y solicitudes pendientes/aceptadas).
+    NO borra nada, solo cambia estados.
+    """
+    libro = Libro.objects.filter(pk=libro_id).first()
+    if not libro:
+        return
+
+    # Marcar libro como no disponible por BAJA (moderación)
+    libro.disponible = False
+    libro.status_reason = STATUS_BAJA
+    libro.save(update_fields=["disponible", "status_reason"])
+
+    now = timezone.now()
+
+    # Cancelar intercambios activos donde participa este libro (excepto Completado)
+    (Intercambio.objects
+        .filter(
+            Q(id_libro_ofrecido_aceptado_id=libro_id) |
+            Q(id_solicitud__id_libro_deseado_id=libro_id),
+        )
+        .exclude(estado_intercambio=INTERCAMBIO_ESTADO["COMPLETADO"])
+        .update(estado_intercambio=INTERCAMBIO_ESTADO["CANCELADO"]))
+
+    # Cancelar solicitudes donde este libro es deseado o fue ofrecido
+    (SolicitudIntercambio.objects
+        .filter(
+            Q(id_libro_deseado_id=libro_id) |
+            Q(ofertas__id_libro_ofrecido_id=libro_id),
+        )
+        .exclude(estado__in=[SOLICITUD_ESTADO["RECHAZADA"], SOLICITUD_ESTADO["CANCELADA"]])
+        .update(estado=SOLICITUD_ESTADO["CANCELADA"], actualizada_en=now))
+    
+
 
 
 portada_sq = (ImagenLibro.objects
@@ -2660,3 +2702,278 @@ def propuesta_actual(request, intercambio_id: int):
         "propuesta_por_id": p.propuesta_por_id,
         "activa": p.activa,
     })
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])  # cuando tengas auth real, puedes usar IsAuthenticated
+def crear_reporte_publicacion(request):
+    """
+    POST /api/reportes-publicacion/
+
+    Body:
+    {
+      "id_libro": 123,
+      "id_usuario_reportador": 5,
+      "motivo": "Contenido inapropiado",
+      "descripcion": "El libro no corresponde a lo publicado..."
+    }
+    """
+    try:
+        libro_id = int(request.data.get("id_libro"))
+        user_id = int(request.data.get("id_usuario_reportador"))
+    except (TypeError, ValueError):
+        return Response({"detail": "id_libro / id_usuario_reportador inválidos."}, status=400)
+
+    motivo = (request.data.get("motivo") or "").strip()
+    descripcion = (request.data.get("descripcion") or "").strip()
+
+    if not motivo:
+        return Response({"detail": "El campo 'motivo' es obligatorio."}, status=400)
+
+    # Validaciones básicas
+    if not Libro.objects.filter(pk=libro_id).exists():
+        return Response({"detail": "Libro no encontrado."}, status=404)
+
+    from core.models import Usuario
+    if not Usuario.objects.filter(pk=user_id, activo=True).exists():
+        return Response({"detail": "Usuario reportador no encontrado o inactivo."}, status=404)
+
+    # Evitar duplicar reportes pendientes del mismo usuario sobre el mismo libro
+    if ReportePublicacion.objects.filter(
+        id_libro_id=libro_id,
+        id_usuario_reportador_id=user_id,
+        estado="PENDIENTE",
+    ).exists():
+        return Response(
+            {"detail": "Ya tienes un reporte pendiente para este libro."},
+            status=409,
+        )
+
+    # Crear reporte
+    rep = ReportePublicacion.objects.create(
+        id_libro_id=libro_id,
+        id_usuario_reportador_id=user_id,
+        motivo=motivo[:50],
+        descripcion=descripcion or None,
+        estado="PENDIENTE",
+        creado_en=timezone.now(), 
+    )
+
+    ser = ReportePublicacionSerializer(rep, context={"request": request})
+    return Response(ser.data, status=201)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def mis_reportes_publicacion(request):
+    """
+    GET /api/reportes-publicacion/mios/?user_id=5
+    Listado de reportes que hizo un usuario.
+    """
+    user_id = request.query_params.get("user_id")
+    if not user_id:
+        return Response({"detail": "Falta user_id"}, status=400)
+
+    try:
+        user_id_int = int(user_id)
+    except (TypeError, ValueError):
+        return Response({"detail": "user_id inválido."}, status=400)
+
+    qs = (ReportePublicacion.objects
+          .filter(id_usuario_reportador_id=user_id_int)
+          .select_related("id_libro", "id_usuario_reportador")
+          .order_by("-creado_en"))
+
+    ser = ReportePublicacionSerializer(qs, many=True, context={"request": request})
+    return Response(ser.data)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsCambiotecaAdmin])  # o AllowAny mientras pruebas
+def admin_dar_baja_libro(request, libro_id: int):
+    """
+    PATCH /api/admin/libros/<libro_id>/dar-baja/
+
+    Uso directo desde el panel admin:
+    - Marca el libro como BAJA (moderación)
+    - Cancela lógicamente solicitudes/intercambios activos
+    """
+    libro = Libro.objects.filter(pk=libro_id).first()
+    if not libro:
+        return Response({"detail": "Libro no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    sr_now = (getattr(libro, "status_reason", "") or "").upper()
+    if sr_now == STATUS_COMPLETADO:
+        return Response(
+            {"detail": "No se puede dar de baja un libro con intercambio completado."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Si ya está en BAJA, devolvemos su estado actual (idempotente)
+    if sr_now == STATUS_BAJA:
+        return Response(
+            {
+                "id": libro.id_libro,
+                "disponible": bool(libro.disponible),
+                "status_reason": libro.status_reason,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    # 👉 Reusamos tu helper centralizado
+    with transaction.atomic():
+        _aplicar_baja_por_moderacion(libro_id)
+
+    # Volvemos a leer para responder el estado final
+    libro.refresh_from_db(fields=["disponible", "status_reason"])
+
+    return Response(
+        {
+            "id": libro.id_libro,
+            "disponible": bool(libro.disponible),
+            "status_reason": libro.status_reason,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsCambiotecaAdmin])  # solo admin
+def admin_listar_reportes_publicacion(request):
+    """
+    GET /api/admin/reportes-publicacion/?estado=PENDIENTE
+
+    Si no se pasa 'estado', trae todos.
+    """
+    estado = (request.query_params.get("estado") or "").upper().strip()
+
+    qs = (ReportePublicacion.objects
+          .select_related("id_libro", "id_usuario_reportador", "revisado_por")
+          .order_by("-creado_en"))
+
+    if estado:
+        qs = qs.filter(estado=estado)
+
+    ser = AdminReportePublicacionSerializer(qs, many=True, context={"request": request})
+    return Response(ser.data)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsCambiotecaAdmin])
+def admin_resolver_reporte_publicacion(request, reporte_id: int):
+    """
+    PATCH /api/admin/reportes-publicacion/<reporte_id>/resolver/
+
+    Body:
+    {
+      "estado": "APROBADO" | "RECHAZADO" | "EN_REVISION",
+      "comentario_admin": "Texto opcional",
+      "marcar_baja": true   # opcional, solo si estado = APROBADO
+    }
+    """
+    rep = (ReportePublicacion.objects
+           .select_related("id_libro")
+           .filter(pk=reporte_id).first())
+    if not rep:
+        return Response({"detail": "Reporte no encontrado."}, status=404)
+
+    nuevo_estado = (request.data.get("estado") or "").upper().strip()
+    if nuevo_estado not in ("PENDIENTE", "EN_REVISION", "APROBADO", "RECHAZADO"):
+        return Response({"detail": "Estado inválido."}, status=400)
+
+    comentario_admin = (request.data.get("comentario_admin") or "").strip()
+    marcar_baja = str(request.data.get("marcar_baja")).lower() in ("1", "true", "t", "yes", "y", "on")
+
+    # Determinar el admin que revisa
+    admin_user = getattr(request, "user", None)
+    admin_id = None
+    if hasattr(admin_user, "id_usuario"):
+        admin_id = admin_user.id_usuario
+    else:
+        # fallback por si estás usando este endpoint sin auth real aún
+        try:
+            admin_id = int(request.data.get("revisado_por_id") or 0)
+        except (TypeError, ValueError):
+            admin_id = None
+
+    with transaction.atomic():
+        rep.estado = nuevo_estado
+        rep.revisado_en = timezone.now()
+        if admin_id:
+            rep.revisado_por_id = admin_id
+        if comentario_admin:
+            rep.comentario_admin = comentario_admin
+
+        rep.save(update_fields=[
+            "estado", "revisado_en", "revisado_por", "comentario_admin"
+        ])
+
+        # Si el reporte se APRUEBA y se indicó marcar_baja, aplicamos BAJA al libro
+        if nuevo_estado == "APROBADO" and marcar_baja:
+            _aplicar_baja_por_moderacion(rep.id_libro_id)
+
+    ser = AdminReportePublicacionSerializer(rep, context={"request": request})
+    return Response(ser.data)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])  # tiene que estar logueado
+def reportar_publicacion(request, libro_id: int):
+    """
+    POST /api/libros/<libro_id>/reportar/
+
+    Body:
+    {
+      "motivo": "Contenido inapropiado",
+      "descripcion": "Texto opcional"
+    }
+    """
+    user = getattr(request, "user", None)
+
+    if not user or not getattr(user, "id_usuario", None):
+        return Response(
+            {"detail": "Debes iniciar sesión para reportar."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    libro = Libro.objects.filter(pk=libro_id).first()
+    if not libro:
+        return Response({"detail": "Libro no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if getattr(libro, "id_usuario_id", None) == user.id_usuario:
+        return Response(
+            {"detail": "No puedes reportar tu propia publicación."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    motivo = (request.data.get("motivo") or "").strip()
+    descripcion = (request.data.get("descripcion") or "").strip()
+
+    if not motivo:
+        return Response(
+            {"detail": "Debes indicar un motivo para el reporte."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    ya_existe = ReportePublicacion.objects.filter(
+        id_libro=libro,
+        id_usuario_reportador=user,
+        estado__in=["PENDIENTE", "EN_REVISION"],
+    ).exists()
+
+    if ya_existe:
+        return Response(
+            {"detail": "Ya enviaste un reporte pendiente para esta publicación."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    rep = ReportePublicacion.objects.create(
+        id_libro=libro,
+        id_usuario_reportador=user,
+        motivo=motivo,
+        descripcion=descripcion or None,
+        estado="PENDIENTE",
+        creado_en=timezone.now(),  # 👈 aquí también
+    )
+
+    ser = ReportePublicacionSerializer(rep, context={"request": request})
+    return Response(ser.data, status=status.HTTP_201_CREATED)

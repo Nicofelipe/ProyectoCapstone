@@ -3,6 +3,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from . import views
+from market import views as market_views
 from .views import (
     # ViewSet
     LibroViewSet,
@@ -30,6 +31,8 @@ from .views import (
 
     # Chat
     lista_conversaciones, mensajes_de_conversacion, enviar_mensaje, marcar_visto,
+
+    admin_dar_baja_libro,
 )
 
 app_name = "market"
@@ -100,6 +103,15 @@ urlpatterns = [
 
     path('libros/por-genero/', views.libros_por_genero, name='libros_por_genero'),
     path('libros/catalogo/', views.catalogo_completo, name='catalogo-completo'),
+
+    path("reportes-publicacion/", market_views.crear_reporte_publicacion, name="crear_reporte_publicacion"),
+    path("reportes-publicacion/mios/", market_views.mis_reportes_publicacion, name="mis_reportes_publicacion"),
+
+    # Admin – moderación de reportes
+    path("admin/reportes-publicacion/", market_views.admin_listar_reportes_publicacion, name="admin_listar_reportes_publicacion"),
+    path("admin/reportes-publicacion/<int:reporte_id>/resolver/",market_views.admin_resolver_reporte_publicacion,name="admin_resolver_reporte_publicacion"),
+    path( "libros/<int:libro_id>/reportar/", market_views.reportar_publicacion, name="reportar_publicacion",),
+     path("admin/libros/<int:libro_id>/dar-baja/",admin_dar_baja_libro, name="admin_dar_baja_libro",),
 ]
 
 # DRF router (ViewSet /libros/…)

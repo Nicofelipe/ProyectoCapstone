@@ -1,0 +1,144 @@
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-back-button defaultHref="/admin/dashboard"></ion-back-button>
+        </ion-buttons>
+        <ion-title>Reportes</ion-title>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+    <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+        <ion-refresher-content pullingText="Desliza para actualizar" refreshingSpinner="crescent"
+            refreshingText="Actualizando…">
+        </ion-refresher-content>
+    </ion-refresher>
+
+    <div class="admin-reports-container">
+        <!-- FILTROS -->
+        <div class="filters-card">
+            <ion-searchbar [(ngModel)]="search" (ionChange)="onSearchChange()"
+                placeholder="Buscar por motivo, libro o usuario" debounce="300">
+            </ion-searchbar>
+
+            <ion-segment [(ngModel)]="filtroEstado" (ionChange)="onFilterChange()">
+                <ion-segment-button value="pendientes">
+                    <ion-label>Pendientes</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="revisados">
+                    <ion-label>Revisados</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="descartados">
+                    <ion-label>Descartados</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="todos">
+                    <ion-label>Todos</ion-label>
+                </ion-segment-button>
+            </ion-segment>
+        </div>
+
+        <!-- LOADING -->
+        <ng-container *ngIf="loading(); else loaded">
+            <div class="reports-list">
+                <div class="report-card" *ngFor="let i of [1,2,3]">
+                    <div class="report-header">
+                        <ion-skeleton-text animated style="width:60%;height:20px"></ion-skeleton-text>
+                        <ion-skeleton-text animated style="width:80px;height:24px"></ion-skeleton-text>
+                    </div>
+                    <ion-skeleton-text animated style="width:40%;height:14px;margin:8px 0"></ion-skeleton-text>
+                    <ion-skeleton-text animated style="width:100%;height:40px"></ion-skeleton-text>
+                </div>
+            </div>
+        </ng-container>
+
+        <!-- LISTA -->
+        <ng-template #loaded>
+            <div class="reports-list" *ngIf="rows().length > 0; else emptyState">
+                <div class="report-card" *ngFor="let r of rows()">
+                    <!-- Header -->
+                    <div class="report-header">
+                        <div class="report-title">
+                            <div class="type-icon" [class.libro]="(r.tipo || '').toUpperCase() === 'LIBRO'"
+                                [class.usuario]="(r.tipo || '').toUpperCase() === 'USUARIO'">
+                                <ion-icon [name]="(r.tipo || '').toUpperCase() === 'LIBRO' ? 'book' : 
+                          (r.tipo || '').toUpperCase() === 'USUARIO' ? 'person' : 'alert-circle'">
+                                </ion-icon>
+                            </div>
+                            <div class="title-text">
+                                <h3>{{ r.motivo }}</h3>
+                                <span class="report-type">{{ tipoTexto(r) }}</span>
+                            </div>
+                        </div>
+                        <ion-badge [color]="estadoColor(r)">{{ r.estado }}</ion-badge>
+                    </div>
+
+                    <!-- Fecha -->
+                    <div class="report-date">
+                        <ion-icon name="time-outline"></ion-icon>
+                        {{ (r.revisado_en || r.creado_en) | date:'dd MMM yyyy, HH:mm' }}
+                    </div>
+
+                    <!-- Detalle -->
+                    <div class="report-detail" *ngIf="r.detalle">
+                        {{ r.detalle }}
+                    </div>
+
+                    <!-- Información -->
+                    <div class="report-info">
+                        <div class="info-item" *ngIf="r.libro_titulo">
+                            <ion-icon name="book-outline"></ion-icon>
+                            <span><strong>Libro:</strong> {{ r.libro_titulo }}</span>
+                        </div>
+                        <div class="info-item" *ngIf="r.libro_owner_nombre">
+                            <ion-icon name="person-outline"></ion-icon>
+                            <span><strong>Dueño:</strong> {{ r.libro_owner_nombre }}</span>
+                        </div>
+                        <div class="info-item" *ngIf="r.usuario_reportado_nombre">
+                            <ion-icon name="warning-outline"></ion-icon>
+                            <span><strong>Reportado:</strong> {{ r.usuario_reportado_nombre }}</span>
+                        </div>
+                        <div class="info-item" *ngIf="r.reporter_nombre">
+                            <ion-icon name="flag-outline"></ion-icon>
+                            <span><strong>Reportante:</strong> {{ r.reporter_nombre }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="report-actions">
+                        <div class="action-links">
+                            <ion-button fill="clear" size="small" (click)="irAlLibro(r)" [disabled]="!r.libro_id">
+                                <ion-icon name="eye-outline" slot="start"></ion-icon>
+                                Ver libro
+                            </ion-button>
+                            <ion-button fill="clear" size="small" (click)="irAlUsuarioReportado(r)"
+                                [disabled]="!(r.usuario_reportado_id || r.libro_owner_id)">
+                                <ion-icon name="person-circle-outline" slot="start"></ion-icon>
+                                Ver usuario
+                            </ion-button>
+                        </div>
+                        <div class="action-buttons">
+                            <ion-button color="success" size="small" (click)="confirmarMarcarRevisado(r)"
+                                [disabled]="!puedeResolver(r)">
+                                <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+                                Revisado
+                            </ion-button>
+                            <ion-button color="medium" fill="outline" size="small" (click)="confirmarDescartar(r)"
+                                [disabled]="!puedeResolver(r)">
+                                <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+                                Descartar
+                            </ion-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <ng-template #emptyState>
+                <div class="empty-state">
+                    <ion-icon name="flag-outline"></ion-icon>
+                    <h3>Sin reportes</h3>
+                    <p>No hay reportes con los filtros actuales</p>
+                </div>
+            </ng-template>
+        </ng-template>
+    </div>
+</ion-content>

@@ -41,6 +41,9 @@ const routes: Routes = [
   { path: 'about/map', loadComponent: () => import('./pages/cambiotecas/map-cambiotecas.page').then(m => m.MapCambiotecasPage) },
 
   { path: 'admin/dashboard', loadComponent: () => import('./pages/admin/admin-dashboard.page').then(m => m.AdminDashboardPage),},
+  { path: 'admin/users', loadComponent: () => import('./pages/admin-users/admin-users.page').then(m => m.AdminUsersPage),},
+  { path: 'admin/reports', loadComponent: () => import('./pages/admin-reports/admin-reports.page').then(m => m.AdminReportsPage),},
+
   { path: '**', redirectTo: 'home' },
 ];
 

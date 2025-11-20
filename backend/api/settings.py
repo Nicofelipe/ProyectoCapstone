@@ -22,7 +22,9 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 # Sugerido en Railway: ALLOWED_HOSTS=".up.railway.app"
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 
-
+CAMBIOTECA_ADMIN_EMAILS = [
+    "vi.vargasj@duocuc.cl",
+]
 
 # Si estás detrás de un proxy (Railway) que termina TLS:
 # Si estás detrás de un proxy (Railway) que termina TLS:

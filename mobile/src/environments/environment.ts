@@ -6,7 +6,7 @@
 export const environment = {
   production: false,
   apiUrl: 'http://127.0.0.1:8000/',  
-  mediaBase: 'http://127.0.0.1:8000//media/', 
+  mediaBase: 'http://127.0.0.1:8000//media', 
   googleMaps: {
     apiKey: '',
     defaultCenter: { lat: -33.4489, lng: -70.6693 }, // Santiago (ajusta)

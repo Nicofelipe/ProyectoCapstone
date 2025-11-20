@@ -54,6 +54,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     // 🔥 Zona admin (solo se verá si user.es_admin === true)
     { name: 'Panel Admin', redirectTo: '/admin/dashboard', icon: 'stats-chart-outline', adminOnly: true },
     { name: 'Usuarios', redirectTo: '/admin/users', icon: 'people-outline', adminOnly: true },
+    { name: 'Reportes', redirectTo: '/admin/reports', icon: 'flag-outline', adminOnly: true },
   ];
 
   get visibleItems(): MenuItem[] {
@@ -66,6 +67,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         '/catalog',
         '/admin/dashboard',
         '/admin/users',
+        '/admin/reports',
       ]);
 
       return this.items.filter(it => allowedForAdmin.has(it.redirectTo));

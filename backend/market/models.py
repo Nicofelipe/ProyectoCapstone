@@ -10,6 +10,7 @@ from .constants import (
     PROPOSAL_STATE,
     PUNTO_TIPO,
 )
+from core.models import Usuario
 
 class Genero(models.Model):
     id_genero = models.AutoField(primary_key=True)
@@ -420,3 +421,58 @@ class PropuestaEncuentro(models.Model):
 
     def __str__(self):
         return f"Propuesta #{self.pk} / Intercambio {self.id_intercambio_id} / {self.estado}"
+    
+
+
+class ReportePublicacion(models.Model):
+    """
+    Mapea la tabla existente reporte_publicacion.
+
+    CREATE TABLE `reporte_publicacion` (
+      `id_reporte` int NOT NULL AUTO_INCREMENT,
+      `id_libro` int NOT NULL,
+      `id_usuario_reportador` int NOT NULL,
+      `motivo` varchar(50) NOT NULL,
+      `descripcion` text DEFAULT NULL,
+      `estado` varchar(20) NOT NULL DEFAULT 'PENDIENTE',
+      `creado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `revisado_en` datetime DEFAULT NULL,
+      `revisado_por_id` int DEFAULT NULL,
+      `comentario_admin` text DEFAULT NULL,
+      ...
+    );
+    """
+    id_reporte = models.AutoField(primary_key=True)
+    id_libro = models.ForeignKey(
+        'Libro',
+        models.DO_NOTHING,
+        db_column='id_libro',
+        related_name='reportes_publicacion',
+    )
+    id_usuario_reportador = models.ForeignKey(
+        Usuario,
+        models.DO_NOTHING,
+        db_column='id_usuario_reportador',
+        related_name='reportes_realizados',
+    )
+    motivo = models.CharField(max_length=50)
+    descripcion = models.TextField(blank=True, null=True)
+    estado = models.CharField(max_length=20, default='PENDIENTE')
+    creado_en = models.DateTimeField()  # DB tiene DEFAULT CURRENT_TIMESTAMP
+    revisado_en = models.DateTimeField(blank=True, null=True)
+    revisado_por = models.ForeignKey(
+        Usuario,
+        models.DO_NOTHING,
+        db_column='revisado_por_id',
+        blank=True,
+        null=True,
+        related_name='reportes_revisados',
+    )
+    comentario_admin = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False  # muy importante: la tabla ya existe
+        db_table = 'reporte_publicacion'
+
+    def __str__(self):
+        return f"Reporte #{self.id_reporte} sobre libro {self.id_libro_id} ({self.estado})"

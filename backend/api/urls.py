@@ -29,6 +29,7 @@ from core.views import (
 
 # Auth JWT (login / logout-all) ya estandarizado en views_auth
 from core import views_auth as auth
+from market import views as market_views
 
 
 # --------- endpoints simples ----------
@@ -87,11 +88,9 @@ urlpatterns = [
     path("api/admin/users/<int:user_id>/toggle/", admin_toggle_user_active, name="admin-user-toggle"),
     path("api/admin/users/<int:user_id>/delete/", admin_delete_user, name="admin-user-delete"),
 
-    # ------- APPS -------
-    # core.urls (contiene también auth/login y logout-all; puedes dejarlo activo
-    # o desactivar las rutas explícitas de arriba para no duplicar)
+    path("api/libros/<int:libro_id>/reportar/", market_views.reportar_publicacion, name="reportar_publicacion"),
+    
     path("api/", include("core.urls")),
-    # market (libros, imágenes, solicitudes, intercambios, chat, favoritos, puntos de encuentro)
     path("api/", include("market.urls")),
 ]
 

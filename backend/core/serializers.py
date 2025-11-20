@@ -5,22 +5,35 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 from django.db.models import F
-
+from django.conf import settings
 from .models import Usuario, Region, Comuna, PasswordResetToken
 
 
 class UsuarioLiteSerializer(serializers.ModelSerializer):
+    es_admin = serializers.SerializerMethodField()  # 👈 NUEVO
+
     class Meta:
         model = Usuario
         fields = (
             "id_usuario", "nombre_usuario", "email",
             "nombres", "apellido_paterno", "imagen_perfil",
             "activo", "verificado",
+            "es_admin",   # 👈 IMPORTANTE: sin espacio, este es el campo que verá el front
         )
+
+    def get_es_admin(self, obj):
+        """
+        Marca como admin si el email del usuario está en CAMBIOTECA_ADMIN_EMAILS.
+        """
+        admin_emails = getattr(settings, "CAMBIOTECA_ADMIN_EMAILS", [])
+        email = (obj.email or "").lower()
+        return any(email == a.lower() for a in admin_emails)
 
 
 
 class UsuarioSummarySerializer(serializers.ModelSerializer):
+
+    es_admin = serializers.SerializerMethodField()
     class Meta:
         model = Usuario
         fields = (
