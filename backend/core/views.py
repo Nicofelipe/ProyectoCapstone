@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from market.views import media_abs
 
 
 
@@ -49,22 +50,14 @@ import secrets
 # =========================
 # Helpers
 # =========================
-def _abs_media_url(request, rel_path: str) -> str:
+def _abs_media_url(request, rel_path: str | None = None) -> str:
     """
-    Si rel_path está en MEDIA (p.ej. 'avatars/xx.jpg'), devuelve URL absoluta.
-    Si ya viene absoluta, la retorna tal cual.
+    Wrapper hacia market.media_abs para unificar la lógica de media.
+    Soporta MEDIA_URL relativo o absoluto y paths ya absolutos.
     """
-    if not rel_path:
-        rel_path = ''
-    if str(rel_path).startswith(('http://', 'https://')):
-        return str(rel_path)
-    media_prefix = settings.MEDIA_URL.lstrip('/')
-    path_clean = str(rel_path).lstrip('/')
-    if path_clean.startswith(media_prefix):
-        url_path = '/' + path_clean
-    else:
-        url_path = '/' + media_prefix + path_clean
-    return request.build_absolute_uri(url_path)
+    return media_abs(request, rel_path or None)
+
+
 
 def _save_avatar(file_obj) -> str:
     """
@@ -1041,6 +1034,10 @@ def admin_toggle_user_active(request, user_id: int):
         "activo": user_to_toggle.activo,
     })
 
+from django.db import IntegrityError
+from django.db.models import Q
+from market.models import Libro, Intercambio
+
 @api_view(['DELETE'])
 @permission_classes([IsCambiotecaAdmin])
 def admin_delete_user(request, user_id: int):
@@ -1051,11 +1048,45 @@ def admin_delete_user(request, user_id: int):
     if not user:
         return Response({"detail": "Usuario no encontrado."}, status=404)
 
+    # 👉 1) Reglas de negocio: no borrar si tiene libros o intercambios
+    tiene_libros = Libro.objects.filter(id_usuario_id=user_id).exists()
+    tiene_intercambios = Intercambio.objects.filter(
+        Q(id_solicitud__id_usuario_solicitante_id=user_id) |
+        Q(id_solicitud__id_usuario_receptor_id=user_id)
+    ).exists()
+
+    if tiene_libros or tiene_intercambios:
+        return Response(
+            {
+                "detail": (
+                    "No se puede eliminar un usuario que tiene libros o "
+                    "intercambios asociados. Desactívalo en su lugar."
+                )
+            },
+            status=400,
+        )
+
+    # 👉 2) Si no tiene actividad, intentar borrar
     try:
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    except IntegrityError:
+        # Por si hay alguna otra FK que se nos pasó
+        return Response(
+            {
+                "detail": (
+                    "No se pudo eliminar al usuario porque tiene datos "
+                    "relacionados. Desactívalo en su lugar."
+                )
+            },
+            status=409,
+        )
     except Exception as e:
-        return Response({"detail": f"No se pudo eliminar al usuario: {e}"}, status=409)
+        return Response(
+            {"detail": f"No se pudo eliminar al usuario: {e}"},
+            status=409,
+        )
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])

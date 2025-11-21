@@ -1,19 +1,21 @@
 /* user-profile.page.scss - Igual que profile pero para vista externa */
 
+/* Y reemplázalo con: */
 .profile-content {
-  --background: linear-gradient(180deg,
-    #f4f4f2 0%,
-    color-mix(in srgb, #f3ded9 12%, #f4f4f2) 100%
-  );
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 20px;
+  --padding-bottom: 20px;
 }
-
+/*
 .profile-content::part(scroll) {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 20px 16px;
+  padding: 0 16px 20px 16px;  // 👈 Sin padding-top
+  padding-top: 20px;  // 👈 Esto lo maneja automáticamente Ionic con fullscreen
 }
-
+*/
 /* ========== Card principal ========== */
 .card {
   width: 100%;

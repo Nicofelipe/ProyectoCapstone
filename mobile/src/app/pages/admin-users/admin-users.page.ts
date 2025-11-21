@@ -209,22 +209,23 @@ export class AdminUsersPage implements OnInit {
   }
 
   private eliminar(u: AdminUserRow) {
-    const url = `${environment.apiUrl}/api/admin/users/${u.id_usuario}/delete/`;
+  const url = `${environment.apiUrl}/api/admin/users/${u.id_usuario}/delete/`;
 
-    this.http.delete<{ message?: string }>(url).subscribe({
-      next: (res) => {
-        const filtered = this.rows().filter(
-          (row) => row.id_usuario !== u.id_usuario
-        );
-        this._rows.set(filtered);
-        this.showToast(res?.message || 'Usuario eliminado correctamente.');
-      },
-      error: (err) => {
-        console.error('delete user error', err);
-        this.showToast('No se pudo eliminar el usuario.');
-      },
-    });
-  }
+  this.http.delete<{ message?: string; detail?: string }>(url).subscribe({
+    next: (res) => {
+      const filtered = this.rows().filter(
+        (row) => row.id_usuario !== u.id_usuario
+      );
+      this._rows.set(filtered);
+      this.showToast(res?.message || 'Usuario eliminado correctamente.');
+    },
+    error: (err) => {
+      console.error('delete user error', err);
+      const msg = err?.error?.detail || 'No se pudo eliminar el usuario.';
+      this.showToast(msg);
+    },
+  });
+}
 
   // ================== UI helpers ==================
   async showToast(message: string) {

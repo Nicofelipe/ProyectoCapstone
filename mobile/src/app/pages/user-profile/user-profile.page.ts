@@ -4,6 +4,7 @@ import { Component, computed, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { BooksService, MyBookCard } from 'src/app/core/services/books.service';
 import { environment } from 'src/environments/environment';
 
 type PublicProfile = {
@@ -89,6 +90,7 @@ export class UserProfilePage implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private auth: AuthService,
+    private booksSvc: BooksService,          // 👈 NUEVO
     private toast: ToastController,
     private location: Location,
   ) {}
@@ -102,37 +104,36 @@ export class UserProfilePage implements OnInit {
     }
 
     try {
-      const [profile, books, history] = await Promise.all([
+      // 👇 OJO: usamos BooksService.getMine(id) como en "Mis libros"
+      const [profile, rawBooks, history] = await Promise.all([
         this.auth.getUserProfile(id),
-        this.auth.getUserBooks(id),
+        this.booksSvc.getMine(id).toPromise(),          // <--- mismo endpoint que MyBooksPage
         this.auth.getUserIntercambios(id),
       ]);
 
-      // 🧑‍🎨 Normalizar avatar (por si viene relativo)
-      const avatarNorm = this.normalizeMedia(profile?.avatar_url ?? null);
+      // 🧑‍🎨 Normalizar avatar (avatar_url o imagen_perfil)
+      const avatarRaw = profile?.avatar_url ?? profile?.imagen_perfil ?? null;
+      const avatarNorm = this.normalizeMedia(avatarRaw);
       this.prof.set({
         ...profile,
-        avatar_url: avatarNorm ?? profile?.avatar_url ?? null,
+        avatar_url: avatarNorm ?? avatarRaw ?? null,
       });
 
-      // 📚 Normalizar portadas de libros (tome lo que venga: portada, first_image, cover...)
-      const normalizedBooks: PublicBook[] = (books || []).map((b: any) => {
-        const rawPortada =
-          b.portada ||
-          b.first_image ||       // muy probable que venga así desde el backend
-          b.cover ||
-          b.cover_url ||
-          b.imagen ||
-          null;
-
+      // 📚 Normalizar portadas de libros reutilizando first_image
+      const normalizedBooks: PublicBook[] = (rawBooks || []).map((b: MyBookCard) => {
+        // first_image viene casi siempre absoluta desde backend
+        const portadaNorm = this.normalizeMedia(b.first_image ?? null) || b.first_image || null;
         return {
-          ...b,
-          portada: this.normalizeMedia(rawPortada),
+          id: b.id,
+          titulo: b.titulo,
+          autor: b.autor,
+          fecha_subida: b.fecha_subida ?? null,
+          portada: portadaNorm,
         };
       });
       this.books.set(normalizedBooks);
 
-      // Historial (si luego quieres mostrar imágenes, aquí también podrías normalizar)
+      // Historial
       this.history.set(history || []);
     } catch (e: any) {
       (await this.toast.create({

@@ -223,8 +223,12 @@ export class AuthService {
       apellido_paterno: updated.apellido_paterno ?? this.user?.apellido_paterno,
       apellido_materno: updated.apellido_materno ?? this.user?.apellido_materno,
       nombre_usuario: updated.nombre_usuario ?? this.user?.nombre_usuario,
-      imagen_perfil: updated.imagen_perfil ?? this.user?.imagen_perfil ?? null,
-      verificado: updated.verificado ?? !!this.user?.verificado,
+      imagen_perfil: (updated.imagen_perfil ?? this.user?.imagen_perfil ?? null) || null,
+      // 👇 conservamos/actualizamos avatar_url si viniera del backend
+      avatar_url: updated.avatar_url ?? this.user?.avatar_url ?? null,
+      verificado: typeof updated.verificado === 'boolean'
+        ? updated.verificado
+        : !!this.user?.verificado,
       rut: updated.rut ?? this.user?.rut,
       telefono: updated.telefono ?? this.user?.telefono,
       direccion: updated.direccion ?? this.user?.direccion,
@@ -232,9 +236,13 @@ export class AuthService {
       direccion_completa:
         updated.direccion_completa ??
         `${updated.direccion ?? this.user?.direccion ?? ''} ${updated.numeracion ?? this.user?.numeracion ?? ''}`.trim(),
+      // 👇 importante: NO perder el flag de admin
+      es_admin: typeof updated.es_admin === 'boolean'
+        ? updated.es_admin
+        : this.user?.es_admin ?? false,
     };
 
-    const merged = { ...(this.user as any), ...normalized };
+    const merged: MeUser = { ...(this.user as MeUser), ...normalized };
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(merged) });
     this._user$.next(merged);
     return normalized;

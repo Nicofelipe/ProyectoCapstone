@@ -1,160 +1,141 @@
 <ion-header>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Usuarios (Admin)</ion-title>
-  </ion-toolbar>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-back-button defaultHref="/home"></ion-back-button>
+        </ion-buttons>
+        <ion-title>Usuarios (Admin)</ion-title>
+    </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
-    <ion-refresher-content
-      pullingText="Desliza para actualizar"
-      refreshingSpinner="crescent"
-      refreshingText="Actualizando…">
-    </ion-refresher-content>
-  </ion-refresher>
+    <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+        <ion-refresher-content pullingText="Desliza para actualizar" refreshingSpinner="crescent"
+            refreshingText="Actualizando…">
+        </ion-refresher-content>
+    </ion-refresher>
 
-  <div class="admin-users-container">
-    <!-- FILTROS -->
-    <div class="filters-card">
-      <ion-item lines="none">
-        <ion-icon name="search-outline" slot="start"></ion-icon>
-        <ion-input
-          label="Buscar"
-          labelPlacement="stacked"
-          placeholder="Nombre, usuario o email"
-          [(ngModel)]="search"
-          (ionChange)="onSearchChange()">
-        </ion-input>
-      </ion-item>
+    <div class="admin-users-container">
+        <!-- FILTROS -->
+        <div class="filters-card">
+            <ion-item lines="none">
+                <ion-icon name="search-outline" slot="start"></ion-icon>
+                <ion-input label="Buscar" labelPlacement="stacked" placeholder="Nombre, usuario o email"
+                    [(ngModel)]="search" (ionChange)="onSearchChange()">
+                </ion-input>
+            </ion-item>
 
-      <div class="filters-row">
-        <ion-segment [(ngModel)]="filtroActivo" (ionChange)="onFilterChange()">
-          <ion-segment-button value="todos">
-            <ion-label>Todos</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="activos">
-            <ion-label>Activos</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="inactivos">
-            <ion-label>Inactivos</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-
-      <div class="filters-row">
-        <!-- Solo admin -->
-        <ion-chip
-          [outline]="filtroAdmin !== 'solo_admin'"
-          (click)="toggleFiltroAdmin('solo_admin')">
-          <ion-icon name="star-outline"></ion-icon>
-          <ion-label>Solo admin</ion-label>
-        </ion-chip>
-
-        <!-- Ocultar admin -->
-        <ion-chip
-          [outline]="filtroAdmin !== 'no_admin'"
-          (click)="toggleFiltroAdmin('no_admin')">
-          <ion-icon name="eye-off-outline"></ion-icon>
-          <ion-label>Ocultar admin</ion-label>
-        </ion-chip>
-      </div>
-    </div>
-
-    <!-- LOADING -->
-    <ng-container *ngIf="loading(); else loaded">
-      <ion-list>
-        <ion-item *ngFor="let s of [1,2,3,4]" lines="full">
-          <ion-avatar slot="start">
-            <ion-skeleton-text
-              animated
-              style="width:40px;height:40px">
-            </ion-skeleton-text>
-          </ion-avatar>
-          <ion-label>
-            <h2>
-              <ion-skeleton-text animated style="width:60%"></ion-skeleton-text>
-            </h2>
-            <p>
-              <ion-skeleton-text animated style="width:40%"></ion-skeleton-text>
-            </p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-    </ng-container>
-
-    <!-- LISTA -->
-    <ng-template #loaded>
-      <ion-list *ngIf="rows().length > 0; else emptyState">
-        <ion-item *ngFor="let u of rows()" lines="full" class="user-item">
-          <ion-avatar slot="start">
-            <div class="avatar-circle" [class.admin]="isAdmin(u)">
-              {{ (u.nombre_usuario || u.email || '?') | slice:0:1 | uppercase }}
+            <div class="filters-row">
+                <ion-segment [(ngModel)]="filtroActivo" (ionChange)="onFilterChange()">
+                    <ion-segment-button value="todos">
+                        <ion-label>Todos</ion-label>
+                    </ion-segment-button>
+                    <ion-segment-button value="activos">
+                        <ion-label>Activos</ion-label>
+                    </ion-segment-button>
+                    <ion-segment-button value="inactivos">
+                        <ion-label>Inactivos</ion-label>
+                    </ion-segment-button>
+                </ion-segment>
             </div>
-          </ion-avatar>
 
-          <ion-label>
-            <h2>
-              {{ nombreCompleto(u) }}
-              <ion-badge *ngIf="isAdmin(u)" color="warning" class="badge-admin">
-                ADMIN
-              </ion-badge>
-            </h2>
-            <p class="user-email">{{ u.email }}</p>
+            <div class="filters-row">
+                <!-- Solo admin -->
+                <ion-chip [outline]="filtroAdmin !== 'solo_admin'" (click)="toggleFiltroAdmin('solo_admin')">
+                    <ion-icon name="star-outline"></ion-icon>
+                    <ion-label>Solo admin</ion-label>
+                </ion-chip>
 
-            <div class="user-meta">
-              <ion-badge [color]="estadoBadgeColor(u)">
-                {{ estadoTexto(u) }}
-              </ion-badge>
-
-              <ion-badge color="medium" *ngIf="(u.total_libros ?? 0) > 0">
-                Libros: {{ u.total_libros }}
-              </ion-badge>
-
-              <ion-badge color="tertiary" *ngIf="(u.total_intercambios ?? 0) > 0">
-                Intercambios: {{ u.total_intercambios }}
-              </ion-badge>
-
-              <!-- Solo mostramos rating si tiene calificaciones -->
-              <ion-badge color="secondary" *ngIf="tieneRating(u)">
-                {{ ratingTexto(u) }}
-              </ion-badge>
+                <!-- Ocultar admin -->
+                <ion-chip [outline]="filtroAdmin !== 'no_admin'" (click)="toggleFiltroAdmin('no_admin')">
+                    <ion-icon name="eye-off-outline"></ion-icon>
+                    <ion-label>Ocultar admin</ion-label>
+                </ion-chip>
             </div>
-          </ion-label>
-
-          <!-- 👇 PARA ADMINS NO HAY BOTONES -->
-          <ion-buttons slot="end" *ngIf="!isAdmin(u)">
-            <ion-button
-              size="small"
-              fill="outline"
-              [color]="u.activo ? 'medium' : 'success'"
-              (click)="confirmarToggleActivo(u)">
-              <ion-icon
-                slot="start"
-                [name]="u.activo ? 'lock-closed-outline' : 'checkmark-circle-outline'">
-              </ion-icon>
-              <ion-label>{{ u.activo ? 'Desactivar' : 'Activar' }}</ion-label>
-            </ion-button>
-
-            <ion-button
-              size="small"
-              color="danger"
-              fill="clear"
-              (click)="confirmarEliminar(u)">
-              <ion-icon name="trash-outline"></ion-icon>
-            </ion-button>
-          </ion-buttons>
-        </ion-item>
-      </ion-list>
-
-      <ng-template #emptyState>
-        <div class="empty-state">
-          <ion-icon name="people-outline"></ion-icon>
-          <p>No se encontraron usuarios con los filtros actuales.</p>
         </div>
-      </ng-template>
-    </ng-template>
-  </div>
+
+        <!-- LOADING -->
+        <ng-container *ngIf="loading(); else loaded">
+            <ion-list>
+                <ion-item *ngFor="let s of [1,2,3,4]" lines="full">
+                    <ion-avatar slot="start">
+                        <ion-skeleton-text animated style="width:40px;height:40px">
+                        </ion-skeleton-text>
+                    </ion-avatar>
+                    <ion-label>
+                        <h2>
+                            <ion-skeleton-text animated style="width:60%"></ion-skeleton-text>
+                        </h2>
+                        <p>
+                            <ion-skeleton-text animated style="width:40%"></ion-skeleton-text>
+                        </p>
+                    </ion-label>
+                </ion-item>
+            </ion-list>
+        </ng-container>
+
+        <!-- LISTA -->
+        <ng-template #loaded>
+            <ion-list *ngIf="rows().length > 0; else emptyState">
+                <ion-item *ngFor="let u of rows()" lines="full" class="user-item">
+                    <ion-avatar slot="start">
+                        <div class="avatar-circle" [class.admin]="isAdmin(u)">
+                            {{ (u.nombre_usuario || u.email || '?') | slice:0:1 | uppercase }}
+                        </div>
+                    </ion-avatar>
+
+                    <ion-label>
+                        <h2>
+                            {{ nombreCompleto(u) }}
+                            <ion-badge *ngIf="isAdmin(u)" color="warning" class="badge-admin">
+                                ADMIN
+                            </ion-badge>
+                        </h2>
+                        <p class="user-email">{{ u.email }}</p>
+
+                        <div class="user-meta">
+                            <ion-badge [color]="estadoBadgeColor(u)">
+                                {{ estadoTexto(u) }}
+                            </ion-badge>
+
+                            <ion-badge color="medium" *ngIf="(u.total_libros ?? 0) > 0">
+                                Libros: {{ u.total_libros }}
+                            </ion-badge>
+
+                            <ion-badge color="tertiary" *ngIf="(u.total_intercambios ?? 0) > 0">
+                                Intercambios: {{ u.total_intercambios }}
+                            </ion-badge>
+
+                            <!-- Solo mostramos rating si tiene calificaciones -->
+                            <ion-badge color="secondary" *ngIf="tieneRating(u)">
+                                {{ ratingTexto(u) }}
+                            </ion-badge>
+                        </div>
+                    </ion-label>
+
+                    <!-- 👇 PARA ADMINS NO HAY BOTONES -->
+                    <ion-buttons slot="end" *ngIf="!isAdmin(u)">
+                        <ion-button size="small" fill="outline" [color]="u.activo ? 'medium' : 'success'"
+                            (click)="confirmarToggleActivo(u)">
+                            <ion-icon slot="start"
+                                [name]="u.activo ? 'lock-closed-outline' : 'checkmark-circle-outline'">
+                            </ion-icon>
+                            <ion-label>{{ u.activo ? 'Desactivar' : 'Activar' }}</ion-label>
+                        </ion-button>
+
+                        <ion-button size="small" color="danger" fill="clear" (click)="confirmarEliminar(u)"
+                            *ngIf="(u.total_libros ?? 0) === 0 && (u.total_intercambios ?? 0) === 0">
+                            <ion-icon name="trash-outline"></ion-icon>
+                        </ion-button>
+                    </ion-buttons>
+                </ion-item>
+            </ion-list>
+
+            <ng-template #emptyState>
+                <div class="empty-state">
+                    <ion-icon name="people-outline"></ion-icon>
+                    <p>No se encontraron usuarios con los filtros actuales.</p>
+                </div>
+            </ng-template>
+        </ng-template>
+    </div>
 </ion-content>
