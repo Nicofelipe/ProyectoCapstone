@@ -10,6 +10,7 @@ urlpatterns = [
     path("auth/logout-all/", logout_all_devices, name="logout_all"),
     path("public/config/", PublicConfigView.as_view(), name="public-config"),
     path('admin/dashboard-summary/', core_views.admin_dashboard_summary),
-    
-    
+    path( "donaciones/crear/", core_views.crear_donacion, name="donaciones-crear",),
+    path("donaciones/confirmar/", core_views.webpay_donacion_confirmar, name="webpay_donacion_confirmar",),
 ]
+

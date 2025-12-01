@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Region, Comuna, Usuario, Notificacion, SeguimientoActividad, Sesion, VerificacionUsuario
-
+from core.models import Donacion
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
     list_display = ('id_region', 'nombre')
@@ -40,3 +40,9 @@ class SesionAdmin(admin.ModelAdmin):
 class VerificacionUsuarioAdmin(admin.ModelAdmin):
     list_display = ('id_verificacion', 'id_usuario', 'documento_identidad', 'fecha_verificacion', 'verificado_por')
     search_fields = ('documento_identidad', 'verificado_por')
+
+@admin.register(Donacion)
+class DonacionAdmin(admin.ModelAdmin):
+    list_display = ("id_donacion", "id_usuario", "monto", "estado", "orden_compra", "created_at")
+    list_filter = ("estado",)
+    search_fields = ("orden_compra", "id_usuario__nombre_usuario", "id_usuario__email")

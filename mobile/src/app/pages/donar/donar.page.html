@@ -1,0 +1,133 @@
+<!-- src/app/pages/donar/donar.page.html -->
+<ion-header [translucent]="true">
+  <ion-toolbar style="--background: #aa9797; --color: white;">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home" color="light"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Donar a Cambioteca</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="donar-content">
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-icon-wrapper">
+      <ion-icon name="heart" class="hero-icon"></ion-icon>
+    </div>
+    <h1 class="hero-title">Haz crecer Cambioteca</h1>
+    <p class="hero-subtitle">
+      Con tu aporte nos ayudas a mantener la plataforma, mejorar
+      la experiencia y seguir fomentando el intercambio de libros.
+    </p>
+    
+    <!-- Stats o beneficios -->
+    <div class="benefits-grid">
+      <div class="benefit-item">
+        <ion-icon name="server-outline"></ion-icon>
+        <span>Servidores</span>
+      </div>
+      <div class="benefit-item">
+        <ion-icon name="rocket-outline"></ion-icon>
+        <span>Mejoras</span>
+      </div>
+      <div class="benefit-item">
+        <ion-icon name="people-outline"></ion-icon>
+        <span>Comunidad</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card de Donación -->
+  <ion-card class="card-donacion">
+    <ion-card-header>
+      <ion-card-subtitle>TU APORTE</ion-card-subtitle>
+      <ion-card-title>Elige el monto</ion-card-title>
+    </ion-card-header>
+    
+    <ion-card-content>
+      <!-- Montos sugeridos -->
+      <div class="montos-sugeridos">
+        <ion-chip 
+          [outline]="monto !== 1000"
+          [class.selected]="monto === 1000"
+          (click)="seleccionarMonto(1000)"
+          class="monto-chip">
+          <ion-icon name="cafe-outline"></ion-icon>
+          $1.000
+        </ion-chip>
+        <ion-chip 
+          [outline]="monto !== 2000"
+          [class.selected]="monto === 2000"
+          (click)="seleccionarMonto(2000)"
+          class="monto-chip">
+          <ion-icon name="book-outline"></ion-icon>
+          $2.000
+        </ion-chip>
+        <ion-chip 
+          [outline]="monto !== 5000"
+          [class.selected]="monto === 5000"
+          (click)="seleccionarMonto(5000)"
+          class="monto-chip">
+          <ion-icon name="library-outline"></ion-icon>
+          $5.000
+        </ion-chip>
+        <ion-chip 
+          [outline]="monto !== 10000"
+          [class.selected]="monto === 10000"
+          (click)="seleccionarMonto(10000)"
+          class="monto-chip">
+          <ion-icon name="heart-outline"></ion-icon>
+          $10.000
+        </ion-chip>
+      </div>
+
+      <!-- Input monto personalizado -->
+      <ion-item lines="none" class="monto-input">
+        <ion-label position="stacked">
+          <ion-icon name="create-outline"></ion-icon>
+          O ingresa un monto personalizado
+        </ion-label>
+        <ion-input
+          type="number"
+          min="500"
+          [(ngModel)]="monto"
+          placeholder="Ej: 2500"
+          class="custom-input">
+        </ion-input>
+      </ion-item>
+
+      <!-- Validación de monto mínimo -->
+      <div class="monto-minimo" *ngIf="monto && monto < 500">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <span>El monto mínimo es $500</span>
+      </div>
+
+      <!-- Botón de pago -->
+      <ion-button
+        expand="block"
+        size="large"
+        class="btn-pagar"
+        [disabled]="loading || !monto || monto < 500"
+        (click)="pagar()">
+        <ion-spinner *ngIf="loading" slot="start" name="crescent"></ion-spinner>
+        <ion-icon *ngIf="!loading" name="card-outline" slot="start"></ion-icon>
+        {{ loading ? 'Procesando...' : 'Donar con Webpay' }}
+      </ion-button>
+
+      <!-- Info adicional -->
+      <div class="info-seguridad">
+        <ion-icon name="shield-checkmark-outline"></ion-icon>
+        <span>Pago 100% seguro mediante Transbank</span>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Mensaje de agradecimiento -->
+  <div class="agradecimiento">
+    <ion-icon name="book-outline"></ion-icon>
+    <p>
+      Cada donación nos acerca a un mundo donde los libros circulan libremente.
+      <strong>¡Gracias por creer en Cambioteca!</strong>
+    </p>
+  </div>
+</ion-content>

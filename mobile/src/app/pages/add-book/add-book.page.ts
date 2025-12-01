@@ -248,4 +248,69 @@ export class AddBookPage {
   ionViewWillLeave() {
     this.previews.forEach(url => URL.revokeObjectURL(url));
   }
+
+  async lookupIsbn() {
+    const ctrl = this.form.get('isbn');
+    if (!ctrl) return;
+
+    ctrl.markAsTouched();
+    if (ctrl.invalid) {
+      this.toast('Ingresa un ISBN válido (10 o 13 dígitos).');
+      return;
+    }
+
+    const raw = String(ctrl.value ?? '');
+    const clean = raw.replace(/[^0-9Xx]/g, '');
+    if (!clean) {
+      this.toast('Ingresa un ISBN primero.');
+      return;
+    }
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Buscando datos del libro…',
+    });
+    await loading.present();
+
+    try {
+      const info = await firstValueFrom(this.books.lookupIsbn(clean));
+      await loading.dismiss();
+
+      if (!info) {
+        this.toast('No se encontraron datos para ese ISBN.');
+        return;
+      }
+
+      const patch: any = {};
+
+      // Solo rellenamos campos vacíos, para no pisar lo que el usuario ya escribió
+      if (!this.form.get('titulo')?.value && info.titulo) {
+        patch.titulo = info.titulo;
+      }
+      if (!this.form.get('autor')?.value && info.autor) {
+        patch.autor = info.autor;
+      }
+      if (!this.form.get('editorial')?.value && info.editorial) {
+        patch.editorial = info.editorial;
+      }
+      if (!this.form.get('anio_publicacion')?.value && info.anio_publicacion) {
+        patch.anio_publicacion = info.anio_publicacion;
+      }
+      if (!this.form.get('descripcion')?.value && info.descripcion) {
+        patch.descripcion = info.descripcion;
+      }
+
+      // (Opcional) podrías intentar mapear género por título/autor, pero eso ya es “nice to have”
+
+      if (Object.keys(patch).length) {
+        this.form.patchValue(patch);
+        this.toast('Datos completados desde ISBN. Revísalos antes de publicar.');
+      } else {
+        this.toast('No había nada nuevo para completar con ese ISBN.');
+      }
+    } catch (e) {
+      await loading.dismiss();
+      console.error('[ISBN LOOKUP] error:', e);
+      this.toast('No se pudo consultar los datos del ISBN.');
+    }
+  }
 }

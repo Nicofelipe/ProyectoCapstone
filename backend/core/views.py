@@ -15,11 +15,12 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from market.views import media_abs
-
+from django.http import HttpResponse
+from django.shortcuts import redirect
 
 
 from .permissions import IsAdminUser as IsCambiotecaAdmin  # <- tu permiso custom
-from .models import PasswordResetToken, Usuario, Region, Comuna
+from .models import PasswordResetToken, Usuario, Region, Comuna, Donacion
 from .serializers import (
     RegisterSerializer, RegionSerializer, ComunaSerializer,
     ForgotPasswordSerializer, ResetPasswordSerializer,
@@ -37,6 +38,10 @@ from market.models import (
     SolicitudIntercambio,
     Genero,
 )
+
+from core.webpay_plus import get_transaction
+from django.shortcuts import redirect
+from transbank.webpay.webpay_plus.transaction import Transaction
 
 
 from market.models import Libro, Intercambio, Calificacion
@@ -1178,3 +1183,343 @@ def user_ratings_view(request, user_id: int):
         })
 
     return Response(out)
+
+
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def donaciones_crear(request):
+    """
+    Crea Donacion en estado PENDIENTE e inicia Webpay.
+    """
+    # 👇 COPIA aquí el cuerpo que ya tienes en crear_donacion
+    try:
+        monto = int(request.data.get("monto") or 0)
+    except (TypeError, ValueError):
+        return Response({"detail": "Monto inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if monto <= 0:
+        return Response({"detail": "El monto debe ser mayor a 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_id = request.data.get("user_id") or request.query_params.get("user_id")
+    usuario = None
+    if user_id:
+        try:
+            usuario = Usuario.objects.get(pk=int(user_id))
+        except (Usuario.DoesNotExist, ValueError):
+            usuario = None
+
+    buy_order = f"DON-{timezone.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+
+    donacion = Donacion.objects.create(
+        id_usuario=usuario,
+        monto=monto,
+        estado="PENDIENTE",
+        orden_compra=buy_order,
+        created_at=timezone.now(),
+    )
+
+    tx = get_transaction()
+    return_url = settings.WEBPAY_RETURN_URL
+
+    try:
+        resp = tx.create(
+            buy_order=buy_order,
+            session_id=str(usuario.id_usuario) if usuario else "anon",
+            amount=monto,
+            return_url=return_url,
+        )
+    except Exception as e:
+        donacion.estado = "ERROR"
+        donacion.save(update_fields=["estado"])
+        return Response({"detail": "No se pudo iniciar el pago.", "error": str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    token = resp.get("token")
+    url = resp.get("url")
+
+    if not token or not url:
+        donacion.estado = "ERROR"
+        donacion.save(update_fields=["estado"])
+        return Response({"detail": "Respuesta inválida desde Webpay."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    donacion.token = token
+    donacion.save(update_fields=["token"])
+
+    redirect_url = f"{url}?token_ws={token}"
+
+    return Response({
+        "donacion_id": donacion.id_donacion,
+        "buy_order": buy_order,
+        "url": url,
+        "token": token,
+        "redirect_url": redirect_url,
+    })
+
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])  # o IsAuthenticated si quieres obligar login
+def crear_donacion(request):
+    """
+    Crea un registro Donacion en estado PENDIENTE e inicia Webpay.
+    Body:
+      - monto (int, obligatorio)
+      - user_id (opcional)
+    """
+    # 1) Validar monto
+    try:
+        monto = int(request.data.get("monto") or 0)
+    except (TypeError, ValueError):
+        return Response({"detail": "Monto inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if monto <= 0:
+        return Response(
+            {"detail": "El monto debe ser mayor a 0."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 2) Usuario opcional
+    user_id = request.data.get("user_id") or request.query_params.get("user_id")
+    usuario = None
+    if user_id:
+        try:
+            usuario = Usuario.objects.get(pk=int(user_id))
+        except (Usuario.DoesNotExist, ValueError):
+            usuario = None
+
+    # 3) Generar orden de compra única
+    buy_order = f"DON-{timezone.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+
+    # 4) Crear donación en la BD
+    donacion = Donacion.objects.create(
+        id_usuario=usuario,
+        monto=monto,
+        estado="PENDIENTE",
+        orden_compra=buy_order,
+        created_at=timezone.now(),
+    )
+
+    # 5) Iniciar transacción Webpay
+    tx = get_transaction()
+    return_url = settings.WEBPAY_RETURN_URL
+
+    try:
+        resp = tx.create(
+            buy_order=buy_order,
+            session_id=str(usuario.id_usuario) if usuario else "anon",
+            amount=monto,
+            return_url=return_url,
+        )
+    except Exception as e:
+        # Si falla Webpay, marcamos la donación como ERROR
+        donacion.estado = "ERROR"
+        donacion.save(update_fields=["estado"])
+        return Response(
+            {"detail": "No se pudo iniciar el pago.", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    token = resp.get("token")
+    url = resp.get("url")
+
+    if not token or not url:
+        donacion.estado = "ERROR"
+        donacion.save(update_fields=["estado"])
+        return Response(
+            {"detail": "Respuesta inválida desde Webpay."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Guardar token en la donación
+    donacion.token = token
+    donacion.save(update_fields=["token"])
+
+    # URL final a la que debe ir el usuario (la que usas en Ionic)
+    redirect_url = f"{url}?token_ws={token}"
+
+    return Response(
+        {
+            "donacion_id": donacion.id_donacion,
+            "buy_order": buy_order,
+            "url": url,
+            "token": token,
+            "redirect_url": redirect_url,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+# core/views.py
+from django.http import HttpResponse   # asegúrate de tener este import
+
+@api_view(["POST", "GET"])
+@permission_classes([AllowAny])
+def webpay_donacion_confirmar(request):
+    token = (
+        request.POST.get("token_ws")
+        or request.GET.get("token_ws")
+        or request.POST.get("TBK_TOKEN")
+        or request.GET.get("TBK_TOKEN")
+    )
+
+    if not token:
+        return HttpResponse("Token no recibido.", status=400)
+
+    tx = get_transaction()
+
+    try:
+        resp = tx.commit(token)
+    except Exception as e:
+        try:
+            donacion = Donacion.objects.get(token=token)
+            donacion.estado = "ERROR"
+            donacion.save(update_fields=["estado"])
+        except Donacion.DoesNotExist:
+            pass
+        return HttpResponse(f"Error al confirmar pago: {e}", status=500)
+
+    buy_order = resp.get("buy_order")
+    status_tx = resp.get("status")            # 'AUTHORIZED', 'FAILED', etc.
+    response_code = resp.get("response_code")  # 0 si OK
+
+    try:
+        donacion = Donacion.objects.get(token=token, orden_compra=buy_order)
+    except Donacion.DoesNotExist:
+        return HttpResponse("Donación no encontrada.", status=404)
+
+    # Actualizar estado según Webpay
+    if status_tx == "AUTHORIZED" and response_code == 0:
+        donacion.estado = "APROBADA"
+    else:
+        donacion.estado = "RECHAZADA"
+    donacion.save(update_fields=["estado"])
+
+    # ==== URL del home (para redirigir) ====
+    front_base = getattr(settings, "FRONTEND_BASE_URL", "").rstrip("/")
+    if front_base:
+        home_url = f"{front_base}/home"
+    else:
+        # fallback para desarrollo
+        home_url = "http://localhost:8100/home"
+
+    # ==== HTML bonito + contador ====
+    estado = donacion.estado
+    monto = donacion.monto
+    es_ok = estado == "APROBADA"
+
+    titulo = "¡Gracias por tu donación! 💛" if es_ok else "No se pudo completar la donación 😕"
+    mensaje = (
+        "Tu aporte ayuda a que Cambioteca siga creciendo y fomentando el intercambio de libros 📚."
+        if es_ok
+        else "La transacción fue rechazada o cancelada. Si quieres, puedes intentarlo nuevamente."
+    )
+    estado_texto = "Donación aprobada" if es_ok else "Donación rechazada"
+    estado_clase = "ok" if es_ok else "bad"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <title>Cambioteca - Donación {estado}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body {{
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+          background: #0f172a;
+          color: #f9fafb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+        }}
+        .card {{
+          background: #020617;
+          border-radius: 18px;
+          padding: 24px 20px;
+          max-width: 380px;
+          width: 100%;
+          text-align: center;
+          box-shadow: 0 24px 50px rgba(0,0,0,0.45);
+        }}
+        .logo {{
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+          color: #a5b4fc;
+          margin-bottom: 6px;
+        }}
+        h1 {{
+          font-size: 1.4rem;
+          margin: 4px 0 10px;
+        }}
+        .estado {{
+          margin-top: 8px;
+          font-size: 0.95rem;
+          font-weight: 600;
+        }}
+        .estado.ok {{ color: #4ade80; }}
+        .estado.bad {{ color: #fb7185; }}
+        .monto {{ margin-top: 8px; font-size: 1.05rem; color: #e5e7eb; }}
+        p {{ font-size: 0.9rem; margin-top: 12px; color: #9ca3af; }}
+        .btn {{
+          display: inline-block;
+          margin-top: 18px;
+          padding: 10px 18px;
+          border-radius: 999px;
+          text-decoration: none;
+          font-size: 0.9rem;
+          font-weight: 500;
+          background: #4f46e5;
+          color: #f9fafb;
+        }}
+        .countdown {{
+          margin-top: 10px;
+          font-size: 0.85rem;
+          color: #9ca3af;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">CAMBIOTECA</div>
+        <h1>{titulo}</h1>
+        <div class="estado {estado_clase}">{estado_texto}</div>
+        <div class="monto">Monto: <strong>{monto:,} CLP</strong></div>
+        <p>{mensaje}</p>
+
+        <a href="{home_url}" class="btn">Volver a Cambioteca</a>
+        <div class="countdown">
+          Serás redirigido al inicio en
+          <span id="seconds">5</span> segundos…
+        </div>
+      </div>
+
+      <script>
+        (function() {{
+          var seconds = 5;
+          var span = document.getElementById('seconds');
+          var url = "{home_url}";
+          function tick() {{
+            seconds -= 1;
+            if (seconds <= 0) {{
+              window.location.href = url;
+            }} else {{
+              span.textContent = seconds;
+              setTimeout(tick, 1000);
+            }}
+          }}
+          span.textContent = seconds;
+          setTimeout(tick, 1000);
+        }})();
+      </script>
+    </body>
+    </html>
+    """
+    return HttpResponse(html)

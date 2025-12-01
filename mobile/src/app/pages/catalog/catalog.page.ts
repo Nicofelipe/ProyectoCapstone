@@ -1,8 +1,10 @@
+// src/app/pages/catalog/catalog.page.ts
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular';
 import { firstValueFrom } from 'rxjs';
+
 import { AuthService } from 'src/app/core/services/auth.service';
 import { BookImage, BooksService, Libro } from 'src/app/core/services/books.service';
 import { environment } from 'src/environments/environment';
@@ -15,17 +17,20 @@ import { environment } from 'src/environments/environment';
   imports: [IonicModule, CommonModule, RouterModule],
 })
 export class CatalogPage implements OnInit {
-  // Datos
-  books: Libro[] = [];
-  private filtered: Libro[] = [];
-  visibleBooks: Libro[] = [];
+  // ========= Datos base =========
+  books: Libro[] = [];           // todos los libros disponibles
+  filteredBooks: Libro[] = [];   // libros filtrados (género + búsqueda)
+  visibleBooks: Libro[] = [];    // ventana actual (infinite scroll)
 
-  // Filtros
+  // ========= Filtros =========
   genres: string[] = [];
   activeGenre: string | null = null;
+  searchTerm = '';
 
+  // ratings del dueño
   ownerRatings: Record<number, { avg: number | null; count: number }> = {};
-  // UI
+
+  // ========= UI =========
   loading = true;
   pageSize = 8;
   skeletonItems = Array.from({ length: 8 });
@@ -42,11 +47,15 @@ export class CatalogPage implements OnInit {
     private booksSvc: BooksService,
     private router: Router,
     private auth: AuthService,
-  ) { }
+  ) {}
 
-  ngOnInit() { this.loadBooks(); }
+  ngOnInit() {
+    this.loadBooks();
+  }
 
-  // --------- Carga principal ---------
+  // --------------------------------
+  // Carga principal
+  // --------------------------------
   loadBooks(event?: any) {
     if (!event) this.loading = true;
 
@@ -59,9 +68,8 @@ export class CatalogPage implements OnInit {
 
         this.books = disponibles;
         this.recomputeGenres();
-        this.applyFilter();
+        this.applyFilters();
 
-        // precarga portadas para la primera página visible
         await this.preloadVisibleCovers();
         await this.preloadOwnerRatingsForVisible();
 
@@ -78,41 +86,80 @@ export class CatalogPage implements OnInit {
     });
   }
 
+  // --------------------------------
+  // Filtro combinado (género + búsqueda)
+  // --------------------------------
+  private applyFilters() {
+    let data = [...this.books];
+
+    // 1) filtrar por género
+    if (this.activeGenre) {
+      const g = this.activeGenre.toLowerCase();
+      data = data.filter((b) => {
+        const nombreGenero = (b.genero_nombre || b.genero || '').toLowerCase();
+        return nombreGenero === g;
+      });
+    }
+
+    // 2) filtrar por texto de búsqueda (titulo o autor)
+    const term = this.searchTerm.trim().toLowerCase();
+    if (term) {
+      data = data.filter((b) => {
+        const titulo = (b.titulo || '').toLowerCase();
+        const autor = (b.autor || '').toLowerCase();
+        return titulo.includes(term) || autor.includes(term);
+      });
+    }
+
+    // 3) actualizar arreglos
+    this.filteredBooks = data;
+    this.visibleBooks = this.filteredBooks.slice(0, this.pageSize);
+  }
+
+  // llamado desde ion-searchbar (en el header)
+  onSearchChange(ev: any) {
+    this.searchTerm = (ev.detail?.value ?? '').toString();
+  
+    this.applyFilters();
+    this.preloadVisibleCovers();
+    this.preloadOwnerRatingsForVisible();
+  }
+
+  // --------------------------------
+  // Ratings de dueños (para las estrellas)
+  // --------------------------------
   private async preloadOwnerRatingsForVisible() {
-    // IDs de dueños que están en visibleBooks y aún no tenemos en cache
     const ids = Array.from(
       new Set(
         this.visibleBooks
-          .map(b => b.owner_id)
-          .filter((id): id is number =>
-            typeof id === 'number' &&
-            !Number.isNaN(id) &&
-            !(id in this.ownerRatings)
-          )
-      )
+          .map((b) => b.owner_id)
+          .filter(
+            (id): id is number =>
+              typeof id === 'number' &&
+              !Number.isNaN(id) &&
+              !(id in this.ownerRatings),
+          ),
+      ),
     );
 
     if (!ids.length) return;
 
-    // Los pedimos uno por uno (para MVP está bien)
     for (const id of ids) {
       try {
-        // 👇 SIN firstValueFrom, porque ya es Promise
-        const p = await this.auth.getUserProfile(id);
+        const p = await this.auth.getUserProfile(id); // getUserProfile devuelve Promise
         this.ownerRatings[id] = {
           avg: p.rating_avg ?? null,
           count: p.rating_count ?? 0,
         };
       } catch {
         this.ownerRatings[id] = { avg: null, count: 0 };
-
-        
       }
     }
   }
 
-
-  // --------- Pull to refresh ---------
+  // --------------------------------
+  // Pull to refresh
+  // --------------------------------
   doRefresh(event: any) {
     this.imageLoaded = {};
     this.covers.clear();
@@ -120,48 +167,60 @@ export class CatalogPage implements OnInit {
     this.loadBooks(event);
   }
 
-  // --------- Infinite scroll ---------
+  // --------------------------------
+  // Infinite scroll
+  // --------------------------------
   loadMore(event: any) {
     const start = this.visibleBooks.length;
     const end = start + this.pageSize;
-    this.visibleBooks = this.visibleBooks.concat(this.filtered.slice(start, end));
+    const next = this.filteredBooks.slice(start, end);
 
-    // precarga de las nuevas visibles
+    this.visibleBooks = this.visibleBooks.concat(next);
+
     this.preloadVisibleCovers();
     this.preloadOwnerRatingsForVisible();
 
     const target = (event as any)?.target;
     if (target?.complete) target.complete();
-    if (this.visibleBooks.length >= this.filtered.length && target) target.disabled = true;
+    if (this.visibleBooks.length >= this.filteredBooks.length && target) {
+      target.disabled = true;
+    }
   }
 
-  private applyFilter() {
-    this.filtered = this.activeGenre
-      ? this.books.filter((b: any) => b.genero_nombre === this.activeGenre)
-      : this.books.slice();
-
-    this.visibleBooks = this.filtered.slice(0, this.pageSize);
-  }
-
+  // --------------------------------
+  // Géneros
+  // --------------------------------
   private recomputeGenres() {
     this.genres = Array.from(
-      new Set((this.books || []).map((b: any) => b.genero_nombre).filter(Boolean))
+      new Set(
+        (this.books || [])
+          .map((b: any) => b.genero_nombre || b.genero)
+          .filter(Boolean),
+      ),
     ).sort();
   }
 
   selectGenre(g: string | null) {
     if (this.activeGenre === g) return;
     this.activeGenre = g;
-    this.imageLoaded = {};
-    this.applyFilter();
+
+
+    this.applyFilters();
     this.preloadVisibleCovers();
-    this.preloadOwnerRatingsForVisible(); // 👈
+    this.preloadOwnerRatingsForVisible();
   }
 
-  trackByBookId(_index: number, item: Libro) { return item.id; }
+  trackByBookId(_index: number, item: Libro) {
+    return item.id;
+  }
 
-  // --------- Navegación ---------
-  goToBook(book: Libro) { this.router.navigate(['/books', 'view', book.id]); }
+  // --------------------------------
+  // Navegación
+  // --------------------------------
+  goToBook(book: Libro) {
+    this.router.navigate(['/books', 'view', book.id]);
+  }
+
   onOwnerClick(ev: Event, book: any) {
     ev.stopPropagation();
     if (!book.owner_id) return;
@@ -183,7 +242,8 @@ export class CatalogPage implements OnInit {
       (b as any)?.cover ||
       (b as any)?.cover_url ||
       (b as any)?.portada ||
-      (b as any)?.imagen || '';
+      (b as any)?.imagen ||
+      '';
 
     const guess = this.normalizeImg(raw);
     if (guess && guess !== this.FALLBACK_ASSET) {
@@ -232,7 +292,7 @@ export class CatalogPage implements OnInit {
       }
     };
 
-    // 🧠 máx 3 al mismo tiempo
+    // máx 3 al mismo tiempo
     const POOL = 3;
     let i = 0;
     const workers = Array.from({ length: Math.min(POOL, ids.length) }, async () => {
@@ -273,13 +333,17 @@ export class CatalogPage implements OnInit {
     try {
       const base = (environment as any).apiUrl || '/';
       return new URL(base, window.location.origin).origin;
-    } catch { return window.location.origin; }
+    } catch {
+      return window.location.origin;
+    }
   }
 
   onImageLoaded(id: number) { this.imageLoaded[id] = true; }
   onImageError(id: number) { this.imageLoaded[id] = true; }
 
-  // --------- Estado y rating ---------
+  // --------------------------------
+  // Estado y rating
+  // --------------------------------
   estadoClass(estado?: string): string {
     const key = (estado || '').toLowerCase();
     if (key.includes('nuevo')) return 'estado-nuevo';
@@ -288,42 +352,42 @@ export class CatalogPage implements OnInit {
     if (key.includes('malo') || key.includes('deteriorado')) return 'estado-malo';
     return 'estado-default';
   }
+
   hasRating(book: any): boolean {
-  const ownerId = Number(book?.owner_id);
-  const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
+    const ownerId = Number(book?.owner_id);
+    const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
 
-  const avg = cached
-    ? Number(cached.avg)
-    : Number(book?.owner_rating_avg);
+    const avg = cached
+      ? Number(cached.avg)
+      : Number(book?.owner_rating_avg);
 
-  const count = cached
-    ? Number(cached.count)
-    : Number(book?.owner_rating_count ?? 0);
+    const count = cached
+      ? Number(cached.count)
+      : Number(book?.owner_rating_count ?? 0);
 
-  return !Number.isNaN(avg) && count > 0;
-}
+    return !Number.isNaN(avg) && count > 0;
+  }
 
-ratingValue(book: any): string {
-  const ownerId = Number(book?.owner_id);
-  const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
+  ratingValue(book: any): string {
+    const ownerId = Number(book?.owner_id);
+    const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
 
-  const avg = cached
-    ? Number(cached.avg)
-    : Number(book?.owner_rating_avg);
+    const avg = cached
+      ? Number(cached.avg)
+      : Number(book?.owner_rating_avg);
 
-  if (Number.isNaN(avg)) return '';
-  return avg.toFixed(1);
-}
+    if (Number.isNaN(avg)) return '';
+    return avg.toFixed(1);
+  }
 
-// 👇 NUEVO
-ratingCount(book: any): number {
-  const ownerId = Number(book?.owner_id);
-  const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
+  ratingCount(book: any): number {
+    const ownerId = Number(book?.owner_id);
+    const cached = !Number.isNaN(ownerId) ? this.ownerRatings[ownerId] : undefined;
 
-  const count = cached
-    ? Number(cached.count)
-    : Number(book?.owner_rating_count ?? 0);
+    const count = cached
+      ? Number(cached.count)
+      : Number(book?.owner_rating_count ?? 0);
 
-  return Number.isNaN(count) ? 0 : count;
-}
+    return Number.isNaN(count) ? 0 : count;
+  }
 }

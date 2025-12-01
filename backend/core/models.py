@@ -188,3 +188,23 @@ class VerificacionUsuario(models.Model):
 
     def __str__(self):
         return f"Verificación #{self.id_verificacion} de Usuario {self.id_usuario_id}"
+    
+
+class Donacion(models.Model):
+    id_donacion = models.AutoField(primary_key=True)
+    id_usuario = models.ForeignKey(
+        'Usuario',
+        models.DO_NOTHING,
+        db_column='id_usuario',
+        blank=True,
+        null=True,
+    )
+    monto = models.IntegerField()
+    estado = models.CharField(max_length=20)  # PENDIENTE, APROBADA, RECHAZADA, ERROR
+    orden_compra = models.CharField(max_length=50, unique=True)
+    token = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False      
+        db_table = 'donacion'

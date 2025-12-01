@@ -205,6 +205,11 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+WEBPAY_COMMERCE_CODE = os.getenv("WEBPAY_COMMERCE_CODE", "")
+WEBPAY_API_KEY = os.getenv("WEBPAY_API_KEY", "")
+WEBPAY_ENV = os.getenv("WEBPAY_ENV", "INTEGRACION")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- Email (Gmail) ---
@@ -221,6 +226,11 @@ DEFAULT_FROM_EMAIL = (
     os.getenv("DEFAULT_FROM_EMAIL")
     or EMAIL_HOST_USER
     or "cambioteca.cl@gmail.com"
+)
+
+WEBPAY_RETURN_URL = os.getenv(
+    "WEBPAY_RETURN_URL",
+    "http://127.0.0.1:8000/api/donaciones/webpay-retorno/",
 )
 
 FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", "https://proyectocapstone-production.up.railway.app/auth/reset-password")

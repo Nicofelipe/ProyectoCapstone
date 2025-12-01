@@ -48,6 +48,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     { name: 'Mis libros', redirectTo: '/my-books', icon: 'library-outline' },
     { name: 'Catálogo de Libros', redirectTo: '/catalog', icon: 'book-outline' },
     { name: 'Favoritos', redirectTo: '/favorites', icon: 'heart-outline' },
+    { name: 'Donar', redirectTo: '/donar', icon: 'gift-outline' },
     { name: 'Login', redirectTo: '/auth/login', icon: 'log-in' },
     { name: 'Registro', redirectTo: '/auth/register', icon: 'person' },
     { name: 'Solicitudes', redirectTo: '/requests', icon: 'swap-horizontal-outline' },

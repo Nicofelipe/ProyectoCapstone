@@ -14,11 +14,62 @@ import { AuthService } from 'src/app/core/services/auth.service';
 import { CatalogService, Comuna, Region } from 'src/app/core/services/catalog.service';
 
 // Regex
-const NAME_RX        = /^[A-Za-zÁÉÍÓÚÑáéíóúñ\s]+$/; // solo letras y espacios
-const RUT_RX         = /^\d{7,8}-[\dkK]$/;           // 7-8 números + '-' + dígito o k/K
-const PHONE_RX       = /^\d{7,12}$/;                 // 7–12 dígitos
-const NUMERACION_RX  = /^[A-Za-z0-9\-]{1,10}$/;      // ej. 123, 123-A
-const STRONG_PWD_RX  = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\s]).{8,}$/;
+const NAME_RX = /^[A-Za-zÁÉÍÓÚÑáéíóúñ\s]+$/; // solo letras y espacios
+const RUT_RX = /^\d{7,8}-[\dkK]$/;           // 7-8 números + '-' + dígito o k/K
+const PHONE_RX = /^\d{7,12}$/;                 // 7–12 dígitos
+const NUMERACION_RX = /^[A-Za-z0-9\-]{1,10}$/;      // ej. 123, 123-A
+const STRONG_PWD_RX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\s]).{8,}$/;
+
+// Limpia el RUT (por si viene con espacios)
+function cleanRut(value: string): string {
+  return (value || '').trim();
+}
+
+// Calcula el dígito verificador usando el algoritmo oficial (módulo 11)
+function calcDv(rutNum: string): string {
+  let sum = 0;
+  let multiplier = 2;
+
+  for (let i = rutNum.length - 1; i >= 0; i--) {
+    sum += parseInt(rutNum.charAt(i), 10) * multiplier;
+    multiplier = (multiplier === 7) ? 2 : multiplier + 1;
+  }
+
+  const rest = 11 - (sum % 11);
+  if (rest === 11) return '0';
+  if (rest === 10) return 'K';
+  return String(rest);
+}
+
+// ValidatorFn que verifica que el RUT sea válido (no solo el formato)
+export function rutRealValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const raw = cleanRut(control.value);
+    if (!raw) return null;                 // aquí dejamos que "required" se encargue
+
+    // Primero validamos formato básico: 12345678-9 o 12345678-K
+    if (!RUT_RX.test(raw)) {
+      return { rutInvalidFormat: true };
+    }
+
+    const [numPart, dvPartRaw] = raw.split('-');
+    const dvInput = dvPartRaw.toUpperCase();
+
+    // numPart son solo dígitos (pattern ya lo aseguró, pero por si acaso)
+    if (!/^\d+$/.test(numPart)) {
+      return { rutInvalid: true };
+    }
+
+    const dvCalc = calcDv(numPart);
+
+    if (dvInput !== dvCalc) {
+      return { rutInvalid: true }; // dígito verificador incorrecto
+    }
+
+    return null; // todo ok
+  };
+}
+
 
 // Validador cruzado para comparar dos controles
 function matchFields(field: string, confirmField: string): ValidatorFn {
@@ -53,14 +104,18 @@ export class RegisterPage implements OnInit {
   busy = false;
 
   form = this.fb.group({
-    rut: ['', [Validators.required, Validators.pattern(RUT_RX)]],
+    rut: ['', [
+      Validators.required,
+      // pattern de formato + validador de RUT real
+      Validators.pattern(RUT_RX),
+      rutRealValidator(),
+    ]],
     nombres: ['', [Validators.required, Validators.pattern(NAME_RX)]],
     apellido_paterno: ['', [Validators.required, Validators.pattern(NAME_RX)]],
     apellido_materno: ['', [Validators.required, Validators.pattern(NAME_RX)]],
     nombre_usuario: ['', [Validators.required]],
 
-    // Email + confirmación
-    email:  ['', [Validators.required, Validators.email]],
+    email: ['', [Validators.required, Validators.email]],
     email2: ['', [Validators.required, Validators.email]],
 
     telefono: ['', [Validators.required, Validators.pattern(PHONE_RX)]],
@@ -69,8 +124,7 @@ export class RegisterPage implements OnInit {
     region: [null as number | null, [Validators.required]],
     comuna: [null as number | null, [Validators.required]],
 
-    // Contraseña + confirmación
-    contrasena:  ['', [Validators.required, Validators.pattern(STRONG_PWD_RX)]],
+    contrasena: ['', [Validators.required, Validators.pattern(STRONG_PWD_RX)]],
     contrasena2: ['', [Validators.required, Validators.pattern(STRONG_PWD_RX)]],
   }, {
     validators: [
@@ -79,6 +133,7 @@ export class RegisterPage implements OnInit {
     ]
   });
 
+
   constructor(
     private fb: FormBuilder,
     private catalog: CatalogService,
@@ -86,7 +141,7 @@ export class RegisterPage implements OnInit {
     private toast: ToastController,
     private loadingCtrl: LoadingController,
     private router: Router,
-  ) {}
+  ) { }
 
   async ngOnInit() {
     this.regiones = await this.catalog.regiones();
@@ -105,6 +160,23 @@ export class RegisterPage implements OnInit {
       this.form.patchValue({ comuna: null });
     }
   }
+
+  get rutError(): string {
+    const ctrl = this.f.rut;
+    if (!ctrl || !ctrl.errors) return '';
+
+    if (ctrl.hasError('required')) {
+      return 'El RUT es obligatorio.';
+    }
+    if (ctrl.hasError('rutInvalidFormat') || ctrl.hasError('pattern')) {
+      return 'Formato de RUT inválido. Ej: 12345678-9 o 12345678-K.';
+    }
+    if (ctrl.hasError('rutInvalid')) {
+      return 'El RUT ingresado no es válido (dígito verificador incorrecto).';
+    }
+    return 'RUT inválido.';
+  }
+
 
   onPickImage(input: HTMLInputElement) { input.click(); }
 
@@ -129,7 +201,7 @@ export class RegisterPage implements OnInit {
   // helpers para template
   get f() { return this.form.controls; }
   get emailMismatch() { return this.form.hasError('email2Mismatch') && (this.f.email2.touched || this.f.email.touched); }
-  get pwdMismatch()   { return this.form.hasError('contrasena2Mismatch') && (this.f.contrasena2.touched || this.f.contrasena.touched); }
+  get pwdMismatch() { return this.form.hasError('contrasena2Mismatch') && (this.f.contrasena2.touched || this.f.contrasena.touched); }
 
   async submit() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }

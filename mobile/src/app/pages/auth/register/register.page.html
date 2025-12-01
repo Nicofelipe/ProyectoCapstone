@@ -1,4 +1,3 @@
-
 <ion-header>
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
@@ -20,7 +19,7 @@
           <ion-input label="RUT" labelPlacement="floating" formControlName="rut"></ion-input>
         </ion-item>
         <ion-note class="form-note" color="danger" *ngIf="f.rut.touched && f.rut.invalid">
-          Formato: 12345678-9 o 12345678-K
+          {{ rutError }}
         </ion-note>
 
         <ion-item fill="solid" class="mt">
@@ -32,10 +31,12 @@
 
         <div class="row-2">
           <ion-item fill="solid">
-            <ion-input label="Apellido paterno" labelPlacement="floating" formControlName="apellido_paterno"></ion-input>
+            <ion-input label="Apellido paterno" labelPlacement="floating"
+              formControlName="apellido_paterno"></ion-input>
           </ion-item>
           <ion-item fill="solid">
-            <ion-input label="Apellido materno" labelPlacement="floating" formControlName="apellido_materno"></ion-input>
+            <ion-input label="Apellido materno" labelPlacement="floating"
+              formControlName="apellido_materno"></ion-input>
           </ion-item>
         </div>
         <ion-note class="form-note" color="danger"
@@ -49,8 +50,8 @@
 
         <!-- Correo -->
         <ion-item fill="solid" class="mt">
-          <ion-input type="email" label="Correo" labelPlacement="floating"
-                     formControlName="email" autocomplete="email"></ion-input>
+          <ion-input type="email" label="Correo" labelPlacement="floating" formControlName="email"
+            autocomplete="email"></ion-input>
         </ion-item>
         <ion-note class="form-note" color="danger" *ngIf="f.email.touched && f.email.invalid">
           Correo inválido.
@@ -58,18 +59,17 @@
 
         <!-- Confirmar correo -->
         <ion-item fill="solid">
-          <ion-input type="email" label="Confirmar correo" labelPlacement="floating"
-                     formControlName="email2" autocomplete="email"></ion-input>
+          <ion-input type="email" label="Confirmar correo" labelPlacement="floating" formControlName="email2"
+            autocomplete="email"></ion-input>
         </ion-item>
-        <ion-note class="form-note" color="danger"
-          *ngIf="(f.email2.touched && f.email2.invalid) || emailMismatch">
+        <ion-note class="form-note" color="danger" *ngIf="(f.email2.touched && f.email2.invalid) || emailMismatch">
           {{ emailMismatch ? 'Los correos no coinciden.' : 'Correo inválido.' }}
         </ion-note>
 
         <div class="row-2">
           <ion-item fill="solid">
-            <ion-input type="tel" label="Teléfono" labelPlacement="floating"
-                       formControlName="telefono" inputmode="tel"></ion-input>
+            <ion-input type="tel" label="Teléfono" labelPlacement="floating" formControlName="telefono"
+              inputmode="tel"></ion-input>
           </ion-item>
         </div>
         <ion-note class="form-note" color="danger" *ngIf="f.telefono.touched && f.telefono.invalid">
@@ -91,9 +91,8 @@
 
         <div class="row-2">
           <ion-item fill="solid">
-            <ion-select label="Región" labelPlacement="floating" interface="popover"
-                        formControlName="region"
-                        (ionChange)="onRegionChange($event.detail.value)">
+            <ion-select label="Región" labelPlacement="floating" interface="popover" formControlName="region"
+              (ionChange)="onRegionChange($event.detail.value)">
               <ion-select-option *ngFor="let r of regiones" [value]="r.id_region">{{ r.nombre }}</ion-select-option>
             </ion-select>
           </ion-item>
@@ -107,8 +106,8 @@
 
         <!-- Contraseña -->
         <ion-item fill="solid" class="mt">
-          <ion-input type="password" label="Contraseña" labelPlacement="floating"
-                     formControlName="contrasena" autocomplete="new-password"></ion-input>
+          <ion-input type="password" label="Contraseña" labelPlacement="floating" formControlName="contrasena"
+            autocomplete="new-password"></ion-input>
         </ion-item>
         <ion-note class="form-note" color="medium">
           Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo.
@@ -120,7 +119,7 @@
         <!-- Confirmar contraseña -->
         <ion-item fill="solid">
           <ion-input type="password" label="Confirmar contraseña" labelPlacement="floating"
-                     formControlName="contrasena2" autocomplete="new-password"></ion-input>
+            formControlName="contrasena2" autocomplete="new-password"></ion-input>
         </ion-item>
         <ion-note class="form-note" color="danger"
           *ngIf="(f.contrasena2.touched && f.contrasena2.invalid) || pwdMismatch">
@@ -148,8 +147,7 @@
           <div class="avatar-right">
             <div class="caption">Imagen de perfil (opcional)</div>
 
-            <input #fileInput type="file" accept="image/*"
-                   class="visually-hidden" (change)="onFileSelected($event)" />
+            <input #fileInput type="file" accept="image/*" class="visually-hidden" (change)="onFileSelected($event)" />
 
             <div class="upload-actions">
               <ion-button size="small" fill="outline" type="button" (click)="onPickImage(fileInput)">
@@ -157,8 +155,8 @@
                 Subir imagen
               </ion-button>
 
-              <ion-button size="small" fill="clear" color="danger"
-                          *ngIf="previewUrl" type="button" (click)="removeImage(fileInput)">
+              <ion-button size="small" fill="clear" color="danger" *ngIf="previewUrl" type="button"
+                (click)="removeImage(fileInput)">
                 <ion-icon slot="start" name="trash-outline"></ion-icon>
                 Quitar
               </ion-button>

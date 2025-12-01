@@ -43,7 +43,7 @@ const routes: Routes = [
   { path: 'admin/dashboard', loadComponent: () => import('./pages/admin/admin-dashboard.page').then(m => m.AdminDashboardPage),},
   { path: 'admin/users', loadComponent: () => import('./pages/admin-users/admin-users.page').then(m => m.AdminUsersPage),},
   { path: 'admin/reports', loadComponent: () => import('./pages/admin-reports/admin-reports.page').then(m => m.AdminReportsPage),},
-
+  { path: 'donar', loadComponent: () => import('./pages/donar/donar.page').then((m) => m.DonarPage), },
   { path: '**', redirectTo: 'home' },
 ];
 

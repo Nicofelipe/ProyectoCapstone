@@ -38,6 +38,16 @@
         ISBN es obligatorio.
       </ion-note>
 
+      <!-- 👇 NUEVO: acciones relacionadas con el ISBN -->
+      <ion-item lines="none">
+        <ion-button size="small" fill="outline" (click)="lookupIsbn()" [disabled]="form.get('isbn')?.invalid">
+          <ion-icon slot="start" name="search-outline"></ion-icon>
+          Completar desde ISBN
+        </ion-button>
+
+        
+      </ion-item>
+
       <ion-item>
         <ion-label position="stacked">Año publicación *</ion-label>
         <ion-input type="number" formControlName="anio_publicacion" (ionChange)="toNumber('anio_publicacion')">

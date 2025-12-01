@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import ApiService from './api.service';
 
@@ -11,6 +11,16 @@ export interface Genero {
 export interface ReportePayload {
   motivo: string;
   descripcion?: string;
+}
+
+export interface IsbnLookupResult {
+  isbn: string;
+  titulo?: string;
+  autor?: string;
+  editorial?: string;
+  anio_publicacion?: number | null;
+  descripcion?: string | null;
+  portada?: string | null;
 }
 
 export interface MyBookCard {
@@ -400,6 +410,47 @@ export class BooksService {
     return this.api.post<{ id_intercambio: number }>(
       '/api/intercambios/create/',
       payload
+    );
+  }
+
+  // ===== Lookup por ISBN (Google Books) =====
+  lookupIsbn(isbn: string): Observable<IsbnLookupResult | null> {
+    const clean = (isbn || '').replace(/[^0-9Xx]/g, '');
+    if (!clean) {
+      return of(null);
+    }
+
+    // Google Books: https://www.googleapis.com/books/v1/volumes?q=isbn:XXXX
+    const url = `https://www.googleapis.com/books/v1/volumes`;
+
+    return this.api.get<any>(`${url}?q=isbn:${clean}`).pipe(
+      map((res) => {
+        const items = res?.items;
+        if (!items || !items.length) return null;
+
+        const info = items[0]?.volumeInfo ?? {};
+        const published = String(info.publishedDate || '');
+        const yearNum = published ? Number(published.slice(0, 4)) : NaN;
+        const year = Number.isFinite(yearNum) ? yearNum : null;
+
+        const autores = Array.isArray(info.authors)
+          ? info.authors.join(', ')
+          : (info.authors || '');
+
+        const imageLinks = info.imageLinks || {};
+
+        const result: IsbnLookupResult = {
+          isbn: clean,
+          titulo: info.title || '',
+          autor: autores || '',
+          editorial: info.publisher || '',
+          anio_publicacion: year,
+          descripcion: info.description || '',
+          portada: imageLinks.thumbnail || imageLinks.smallThumbnail || null,
+        };
+
+        return result;
+      })
     );
   }
 }
