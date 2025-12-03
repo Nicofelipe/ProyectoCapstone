@@ -29,7 +29,7 @@ from .serializers import (
 from django.db.models.functions import Coalesce, TruncDay, TruncMonth
 from collections import defaultdict
 from django.db.models import (
- OuterRef, Subquery, IntegerField, Value
+ OuterRef, Subquery, IntegerField, Value, Sum,
 )
 from market.models import (
     Libro,
@@ -655,6 +655,9 @@ def change_password_view(request):
 # =========================
 # VISTAS DE ADMINISTRACIÓN
 # =========================
+# =========================
+# VISTAS DE ADMINISTRACIÓN
+# =========================
 @api_view(['GET'])
 @permission_classes([IsCambiotecaAdmin])
 def admin_dashboard_summary(request):
@@ -664,13 +667,13 @@ def admin_dashboard_summary(request):
     - Series por día/mes
     - Top usuarios (más intercambios, más libros, mejor calificados, más solicitudes)
     - Géneros más publicados e intercambiados
+    - Donaciones (a partir de la tabla de donaciones)
     """
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
     thirty_days_ago = now - timedelta(days=30)
 
     # ---------- USUARIOS ----------
-    # Solo usuarios activos que no son admin
     total_users = Usuario.objects.filter(activo=True, es_admin=False).count()
 
     try:
@@ -682,14 +685,20 @@ def admin_dashboard_summary(request):
     except Exception:
         new_users_last_7_days = 0
 
-    # Usuarios por región
-    users_by_region = (
+    users_by_region_qs = (
         Usuario.objects
         .filter(activo=True, es_admin=False)
         .values('comuna__id_region__nombre')
         .annotate(total=Count('id_usuario'))
         .order_by('-total')
     )
+    users_by_region = [
+        {
+            "region": row["comuna__id_region__nombre"] or "Sin región",
+            "total": row["total"],
+        }
+        for row in users_by_region_qs
+    ]
 
     # ---------- LIBROS ----------
     total_books = Libro.objects.count()
@@ -698,7 +707,6 @@ def admin_dashboard_summary(request):
     books_last_7_days = Libro.objects.filter(fecha_subida__gte=seven_days_ago).count()
     books_last_30_days = Libro.objects.filter(fecha_subida__gte=thirty_days_ago).count()
 
-    # Mes actual y mes anterior (para comparar libros subidos)
     current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if now.month == 1:
         prev_month_year = now.year - 1
@@ -726,7 +734,6 @@ def admin_dashboard_summary(request):
         fecha_subida__lt=current_month_start,
     ).count()
 
-    # Libros por día (últimos 30 días)
     books_by_day_30_qs = (
         Libro.objects
         .filter(fecha_subida__gte=thirty_days_ago)
@@ -740,7 +747,6 @@ def admin_dashboard_summary(request):
         for row in books_by_day_30_qs
     ]
 
-    # Libros por mes (todo el histórico, tú puedes cortar a 12 en el front)
     books_by_month_qs = (
         Libro.objects
         .annotate(m=TruncMonth('fecha_subida'))
@@ -776,7 +782,6 @@ def admin_dashboard_summary(request):
         .count()
     )
 
-    # Intercambios completados por día (últimos 30 días)
     exchanges_by_day_30_qs = (
         Intercambio.objects
         .filter(
@@ -794,7 +799,6 @@ def admin_dashboard_summary(request):
         for row in exchanges_by_day_30_qs
     ]
 
-    # Intercambios completados por mes
     exchanges_by_month_qs = (
         Intercambio.objects
         .filter(
@@ -812,7 +816,6 @@ def admin_dashboard_summary(request):
     ]
 
     # ---------- TOP USUARIOS ----------
-    # Top activos (más intercambios completados = solicitante + receptor)
     completed_as_solicitante_sq = (
         Intercambio.objects
         .filter(
@@ -856,7 +859,6 @@ def admin_dashboard_summary(request):
         .values('id_usuario', 'nombre_usuario', 'email', 'total_completed_exchanges')
     )
 
-    # Top publicadores (más libros subidos)
     top_publishers_qs = (
         Libro.objects
         .values(
@@ -868,7 +870,6 @@ def admin_dashboard_summary(request):
         .order_by('-books_count')[:5]
     )
 
-    # Top solicitantes (más solicitudes de intercambio creadas)
     top_requesters_qs = (
         SolicitudIntercambio.objects
         .values(
@@ -880,7 +881,6 @@ def admin_dashboard_summary(request):
         .order_by('-solicitudes_count')[:5]
     )
 
-    # Top mejor calificados
     top_rated_qs = (
         Calificacion.objects
         .values(
@@ -890,14 +890,13 @@ def admin_dashboard_summary(request):
         )
         .annotate(
             promedio=Avg('puntuacion'),
-            total=Count('id_clasificacion'),
+            total=Count('pk'),
         )
         .filter(total__gte=1)
         .order_by('-promedio', '-total')[:5]
     )
 
     # ---------- GÉNEROS ----------
-    # Géneros más publicados (por cantidad de libros)
     genres_books_qs = (
         Libro.objects
         .values('id_genero__nombre')
@@ -912,10 +911,8 @@ def admin_dashboard_summary(request):
         for row in genres_books_qs
     ]
 
-    # Géneros más intercambiados (sumando libro deseado + libro ofrecido)
     genres_exchanges_counter = defaultdict(int)
 
-    # Por libro deseado
     q_deseado = (
         Intercambio.objects
         .filter(estado_intercambio='Completado')
@@ -926,7 +923,6 @@ def admin_dashboard_summary(request):
         name = row['id_solicitud__id_libro_deseado__id_genero__nombre'] or "Sin género"
         genres_exchanges_counter[name] += row['total']
 
-    # Por libro ofrecido
     q_ofrecido = (
         Intercambio.objects
         .filter(estado_intercambio='Completado')
@@ -944,19 +940,143 @@ def admin_dashboard_summary(request):
     genres_exchanges.sort(key=lambda x: x["total"], reverse=True)
     genres_exchanges = genres_exchanges[:10]
 
-    # ---------- ARMAR RESPUESTA ----------
+    # ---------- DONACIONES ----------
+    # Si algo falla (modelo, campo, etc.), devolvemos todo en 0 para no romper el dashboard
+    # ---------- DONACIONES ----------
+    # Valores por defecto, por si algo falla
+    donations_stats = {
+        "total_count": 0,
+        "total_amount": 0,
+        "last_30_days": {
+            "count": 0,
+            "amount": 0,
+        },
+        "by_month": [],
+        "current_month": {
+            "count": 0,
+            "amount": 0,
+        },
+        "previous_month": {
+            "count": 0,
+            "amount": 0,
+        },
+        "variation": {
+            "count_percent": None,
+            "amount_percent": None,
+        },
+    }
+
+    try:
+        # Solo donaciones aprobadas
+        donations_qs = Donacion.objects.filter(estado__iexact="APROBADA")
+
+        # Totales globales
+        total_donations_count = donations_qs.count()
+        total_donations_amount = donations_qs.aggregate(
+            total=Coalesce(Sum("monto"), Value(0))
+        )["total"] or 0
+
+        # Últimos 30 días (OJO: usamos created_at, no fecha)
+        donations_last_30_qs = donations_qs.filter(created_at__gte=thirty_days_ago)
+        donations_last_30 = {
+            "count": donations_last_30_qs.count(),
+            "amount": donations_last_30_qs.aggregate(
+                total=Coalesce(Sum("monto"), Value(0))
+            )["total"] or 0,
+        }
+
+        # Agrupado por mes
+        donations_by_month_qs = (
+            donations_qs
+            .annotate(m=TruncMonth("created_at"))
+            .values("m")
+            .annotate(
+                count=Count("pk"),
+                amount=Coalesce(Sum("monto"), Value(0)),
+            )
+            .order_by("m")
+        )
+        donations_by_month = [
+            {
+                "month": row["m"].date().isoformat(),
+                "count": row["count"],
+                "amount": row["amount"],
+            }
+            for row in donations_by_month_qs
+        ]
+
+        # Mes actual
+        donations_current_month_qs = donations_qs.filter(
+            created_at__gte=current_month_start
+        )
+        donations_current_month = {
+            "count": donations_current_month_qs.count(),
+            "amount": donations_current_month_qs.aggregate(
+                total=Coalesce(Sum("monto"), Value(0))
+            )["total"] or 0,
+        }
+
+        # Mes anterior
+        donations_previous_month_qs = donations_qs.filter(
+            created_at__gte=previous_month_start,
+            created_at__lt=current_month_start,
+        )
+        donations_previous_month = {
+            "count": donations_previous_month_qs.count(),
+            "amount": donations_previous_month_qs.aggregate(
+                total=Coalesce(Sum("monto"), Value(0))
+            )["total"] or 0,
+        }
+
+        # Variaciones %
+        def _variation(current, previous):
+            if previous and float(previous) != 0:
+                return round(
+                    (float(current) - float(previous)) * 100.0 / float(previous),
+                    2,
+                )
+            return None
+
+        donations_variation = {
+            "count_percent": _variation(
+                donations_current_month["count"],
+                donations_previous_month["count"],
+            ),
+            "amount_percent": _variation(
+                donations_current_month["amount"],
+                donations_previous_month["amount"],
+            ),
+        }
+
+        donations_stats = {
+            "total_count": total_donations_count,
+            "total_amount": total_donations_amount,
+            "last_30_days": donations_last_30,
+            "by_month": donations_by_month,
+            "current_month": donations_current_month,
+            "previous_month": donations_previous_month,
+            "variation": donations_variation,
+        }
+
+    except Exception as e:
+        import logging
+        logging.exception(
+            "Error en bloque de donaciones del admin_dashboard_summary"
+        )
+
+    # ---------- RESPUESTA ----------
     return Response({
-        # Totales "simples" que ya usas
         "total_users": total_users,
         "new_users_last_7_days": new_users_last_7_days,
         "total_books": total_books,
+        "available_books": available_books,
         "completed_exchanges": completed_exchanges,
         "in_progress_exchanges": in_progress_exchanges,
+        "intercambios_completados": completed_exchanges,
+        "intercambios_pendientes": in_progress_exchanges,
 
-        # Usuarios por región (para tu gráfico de barras horizontal)
-        "users_by_region": list(users_by_region),
+        "users_by_region": users_by_region,
 
-        # Stats de libros (para comparaciones mes actual / mes pasado, etc.)
         "books_stats": {
             "total": total_books,
             "available": available_books,
@@ -968,7 +1088,6 @@ def admin_dashboard_summary(request):
             "by_month": books_by_month,
         },
 
-        # Stats de intercambios
         "exchanges_stats": {
             "completed_total": completed_exchanges,
             "in_progress_total": in_progress_exchanges,
@@ -977,16 +1096,18 @@ def admin_dashboard_summary(request):
             "by_month": exchanges_by_month,
         },
 
-        # Top usuarios
         "top_active_users": list(top_active_users_qs),
         "top_publishers": list(top_publishers_qs),
         "top_requesters": list(top_requesters_qs),
         "top_rated_users": list(top_rated_qs),
 
-        # Géneros
         "genres_books": genres_books,
         "genres_exchanges": genres_exchanges,
+
+        "donations_stats": donations_stats,
     })
+
+
 
 @api_view(['GET'])
 @permission_classes([IsCambiotecaAdmin])

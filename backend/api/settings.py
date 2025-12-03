@@ -24,6 +24,7 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 
 CAMBIOTECA_ADMIN_EMAILS = [
     "vi.vargasj@duocuc.cl",
+    "sonia@gmail.com",
 ]
 
 # Si estás detrás de un proxy (Railway) que termina TLS:

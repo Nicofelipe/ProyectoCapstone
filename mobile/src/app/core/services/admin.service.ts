@@ -9,6 +9,31 @@ export interface RegionRow {
   total: number;
 }
 
+export interface DonationsPeriod {
+  count: number;
+  amount: number;
+}
+
+export interface DonationsByMonthRow {
+  month: string;  // "2025-03-01" (tu backend manda ISO)
+  count: number;
+  amount: number;
+}
+
+export interface DonationsVariation {
+  count_percent: number | null;
+  amount_percent: number | null;
+}
+
+export interface DonationsStats {
+  total_count: number;
+  total_amount: number;
+  last_30_days: DonationsPeriod;
+  by_month: DonationsByMonthRow[];
+  current_month: DonationsPeriod;
+  previous_month: DonationsPeriod;
+  variation: DonationsVariation;
+}
 export interface BooksStats {
   total: number;
   available: number;
@@ -65,7 +90,11 @@ export interface AdminSummary {
   }>;
   genres_books: Array<{ genre: string; total: number }>;
   genres_exchanges: Array<{ genre: string; total: number }>;
+
+  // 👇 NUEVO
+  donations_stats: DonationsStats;
 }
+
 
 // (Opcional) para gestión de usuarios admin:
 export interface AdminUserRow {
@@ -87,7 +116,7 @@ export interface AdminUserRow {
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService) { }
 
   // 👉 Resumen del dashboard admin
   getSummary(): Observable<AdminSummary> {
@@ -103,8 +132,8 @@ export class AdminService {
           intercambios_pendientes: res.in_progress_exchanges,
 
           users_by_region: (res.users_by_region || []).map((r: any) => ({
-            region: r['comuna__id_region__nombre'] || 'Sin región',
-            total: r.total,
+            region: r.region || 'Sin región',
+            total: r.total ?? 0,
           })),
 
           books_stats: res.books_stats || {
@@ -133,6 +162,38 @@ export class AdminService {
 
           genres_books: res.genres_books || [],
           genres_exchanges: res.genres_exchanges || [],
+
+          // 👇 NUEVO: donaciones
+          donations_stats: {
+            total_count: res.donations_stats?.total_count ?? 0,
+            total_amount: Number(res.donations_stats?.total_amount ?? 0),
+
+            last_30_days: {
+              count: res.donations_stats?.last_30_days?.count ?? 0,
+              amount: Number(res.donations_stats?.last_30_days?.amount ?? 0),
+            },
+
+            by_month: (res.donations_stats?.by_month || []).map((row: any) => ({
+              month: row.month,
+              count: row.count ?? 0,
+              amount: Number(row.amount ?? 0),
+            })),
+
+            current_month: {
+              count: res.donations_stats?.current_month?.count ?? 0,
+              amount: Number(res.donations_stats?.current_month?.amount ?? 0),
+            },
+
+            previous_month: {
+              count: res.donations_stats?.previous_month?.count ?? 0,
+              amount: Number(res.donations_stats?.previous_month?.amount ?? 0),
+            },
+
+            variation: {
+              count_percent: res.donations_stats?.variation?.count_percent ?? null,
+              amount_percent: res.donations_stats?.variation?.amount_percent ?? null,
+            },
+          },
         };
 
         return mapped;

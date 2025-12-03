@@ -162,38 +162,46 @@ export class ViewPage implements OnInit {
 
   // ===== Ciclo de vida =====
   async ngOnInit() {
-    // Flag de vista admin (?admin=1)
-    this.isAdminView = this.route.snapshot.queryParamMap.get('admin') === '1';
-    this.route.queryParamMap.subscribe((params) => {
-      this.isAdminView = params.get('admin') === '1';
-    });
+  // 1) Restaurar sesión primero
+  await this.auth.restoreSession();
+  this.me = this.auth.user;
 
-    await this.auth.restoreSession();
-    this.me = this.auth.user;
+  // 2) Leer flag de query param
+  const adminFlag = this.route.snapshot.queryParamMap.get('admin') === '1';
 
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    if (id) {
-      await this.load(id);
-    }
+  // 3) Combinar: es admin si viene el flag O si el usuario tiene es_admin
+  this.isAdminView = adminFlag || !!this.me?.es_admin;
 
-    // Estado inicial de favoritos (solo en vista normal)
-    if (!this.isAdminView && this.me && id) {
-      const seq = ++this.favReqSeq;
-      this.isFavBusy = true;
+  // 4) Escuchar cambios de query params (por si cambias admin=1/0 en la navegación)
+  this.route.queryParamMap.subscribe((params) => {
+    const flag = params.get('admin') === '1';
+    this.isAdminView = flag || !!this.me?.es_admin;
+  });
 
-      this.favs.check(id, this.me.id).subscribe({
-        next: (v) => {
-          if (seq === this.favReqSeq) this.isFav = !!v;
-        },
-        error: () => {
-          if (seq === this.favReqSeq) this.isFav = false;
-        },
-        complete: () => {
-          if (seq === this.favReqSeq) this.isFavBusy = false;
-        },
-      });
-    }
+  // 5) Cargar libro
+  const id = Number(this.route.snapshot.paramMap.get('id'));
+  if (id) {
+    await this.load(id);
   }
+
+  // 6) Estado inicial de favoritos (solo en vista normal)
+  if (!this.isAdminView && this.me && id) {
+    const seq = ++this.favReqSeq;
+    this.isFavBusy = true;
+
+    this.favs.check(id, this.me.id).subscribe({
+      next: (v) => {
+        if (seq === this.favReqSeq) this.isFav = !!v;
+      },
+      error: () => {
+        if (seq === this.favReqSeq) this.isFav = false;
+      },
+      complete: () => {
+        if (seq === this.favReqSeq) this.isFavBusy = false;
+      },
+    });
+  }
+}
 
   // ===== Pull-to-refresh =====
   async doRefresh(ev: any) {

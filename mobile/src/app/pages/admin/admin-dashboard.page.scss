@@ -320,6 +320,52 @@ ion-item {
   }
 }
 
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  ion-item {
+    flex: 1;
+    min-width: 140px;
+  }
+}
+
+.donations-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.donation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ion-color-light-shade);
+
+  .left {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .right {
+    font-weight: 600;
+  }
+}
+
+.filters-card {
+  ion-card-content {
+    padding-top: 8px;
+  }
+
+  ion-segment-button {
+    text-transform: none;
+    font-size: 13px;
+  }
+}
+
 // Animaciones suaves
 @keyframes fadeInUp {
   from {
@@ -331,6 +377,8 @@ ion-item {
     transform: translateY(0);
   }
 }
+
+
 
 .dashboard-wrapper > * {
   animation: fadeInUp 0.4s ease forwards;

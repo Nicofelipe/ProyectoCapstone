@@ -1,5 +1,4 @@
-
-<!-- src/app/pages/admin-dashboard/admin-dashboard.page.html -->
+<!-- src/app/pages/admin/admin-dashboard.page.html -->
 <ion-header>
   <ion-toolbar>
     <ion-buttons slot="start">
@@ -14,7 +13,8 @@
     <ion-refresher-content
       pullingText="Desliza para actualizar"
       refreshingSpinner="crescent"
-      refreshingText="Actualizando…">
+      refreshingText="Actualizando…"
+    >
     </ion-refresher-content>
   </ion-refresher>
 
@@ -27,6 +27,22 @@
   <ng-template #loaded>
     <div *ngIf="data() as d; else noData" class="dashboard-wrapper">
       <!-- Tarjetas principales -->
+        <!-- Filtros globales de período para las gráficas -->
+      <ion-card class="filters-card">
+        <ion-card-header>
+          <ion-card-title>Período de análisis</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-segment [(ngModel)]="periodModel">
+            <ion-segment-button value="30d">
+              <ion-label>Últimos 30 días</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="12m">
+              <ion-label>Últimos 12 meses</ion-label>
+            </ion-segment-button>
+          </ion-segment>
+        </ion-card-content>
+      </ion-card>
       <div class="stats-grid">
         <ion-card class="stat-card">
           <ion-card-header>
@@ -48,8 +64,12 @@
           </ion-card-header>
           <ion-card-content>
             <p class="kpi-note">
-              <ion-icon name="checkmark-circle-outline" color="primary"></ion-icon>
-              Disponibles: {{ d.available_books }}
+              <ion-icon
+                name="checkmark-circle-outline"
+                color="primary"
+              ></ion-icon>
+              Disponibles:
+              {{ d.books_stats?.available ?? 0 }}
             </p>
           </ion-card-content>
         </ion-card>
@@ -57,7 +77,9 @@
         <ion-card class="stat-card">
           <ion-card-header>
             <ion-card-subtitle>Intercambios completados</ion-card-subtitle>
-            <ion-card-title>{{ d.intercambios_completados }}</ion-card-title>
+            <ion-card-title>
+              {{ d.exchanges_stats?.completed_total ?? 0 }}
+            </ion-card-title>
           </ion-card-header>
           <ion-card-content>
             <p class="kpi-note">
@@ -70,7 +92,9 @@
         <ion-card class="stat-card">
           <ion-card-header>
             <ion-card-subtitle>Intercambios en progreso</ion-card-subtitle>
-            <ion-card-title>{{ d.intercambios_pendientes }}</ion-card-title>
+            <ion-card-title>
+              {{ d.exchanges_stats?.in_progress_total ?? 0 }}
+            </ion-card-title>
           </ion-card-header>
           <ion-card-content>
             <p class="kpi-note">
@@ -80,6 +104,44 @@
           </ion-card-content>
         </ion-card>
       </div>
+
+      <!-- Tarjeta donaciones -->
+      <ion-card class="stat-card">
+        <ion-card-header>
+          <ion-card-subtitle>Donaciones</ion-card-subtitle>
+          <ion-card-title>
+            {{
+              d.donations_stats.total_amount
+                | currency: 'CLP':'symbol-narrow'
+            }}
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p class="kpi-note">
+            <ion-icon name="cash-outline" color="success"></ion-icon>
+            Total donaciones: {{ d.donations_stats.total_count }}
+          </p>
+          <p class="kpi-note">
+            <ion-icon name="calendar-outline" color="tertiary"></ion-icon>
+            Últimos 30 días:
+            {{
+              d.donations_stats.last_30_days.amount
+                | currency: 'CLP':'symbol-narrow'
+            }}
+            ({{ d.donations_stats.last_30_days.count }} donaciones)
+          </p>
+          <p class="kpi-note">
+            <ion-icon
+              name="trending-up-outline"
+              [color]="donationVariationColor()"
+            ></ion-icon>
+            Variación vs mes anterior:
+            <ion-badge [color]="donationVariationColor()">
+              {{ d.donations_stats.variation.amount_percent ?? 0 }} %
+            </ion-badge>
+          </p>
+        </ion-card-content>
+      </ion-card>
 
       <!-- Bloque: Libros subidos -->
       <ion-card>
@@ -91,21 +153,91 @@
           <div class="kpi-row">
             <div class="kpi-box">
               <h3>Este mes</h3>
-              <p>{{ d.books_stats.current_month }}</p>
+              <p>{{ d.books_stats?.current_month ?? 0 }}</p>
             </div>
             <div class="kpi-box">
               <h3>Mes anterior</h3>
-              <p>{{ d.books_stats.previous_month }}</p>
+              <p>{{ d.books_stats?.previous_month ?? 0 }}</p>
             </div>
             <div class="kpi-box">
               <h3>Últimos 7 días</h3>
-              <p>{{ d.books_stats.last_7_days }}</p>
+              <p>{{ d.books_stats?.last_7_days ?? 0 }}</p>
             </div>
             <div class="kpi-box">
               <h3>Últimos 30 días</h3>
-              <p>{{ d.books_stats.last_30_days }}</p>
+              <p>{{ d.books_stats?.last_30_days ?? 0 }}</p>
             </div>
           </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Bloque: Donaciones por mes -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Donaciones por mes</ion-card-title>
+          <ion-card-subtitle>Filtrar por año y mes</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="filters-row">
+            <ion-item lines="none">
+              <ion-label>Año</ion-label>
+              <ion-select [(ngModel)]="selectedYearModel">
+                <ion-select-option value="all">Todos</ion-select-option>
+                <ion-select-option
+                  *ngFor="let y of years()"
+                  [value]="y"
+                >
+                  {{ y }}
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
+
+            <ion-item lines="none">
+              <ion-label>Mes</ion-label>
+              <ion-select [(ngModel)]="selectedMonthModel">
+                <ion-select-option value="all">Todos</ion-select-option>
+                <ion-select-option [value]="1">Enero</ion-select-option>
+                <ion-select-option [value]="2">Febrero</ion-select-option>
+                <ion-select-option [value]="3">Marzo</ion-select-option>
+                <ion-select-option [value]="4">Abril</ion-select-option>
+                <ion-select-option [value]="5">Mayo</ion-select-option>
+                <ion-select-option [value]="6">Junio</ion-select-option>
+                <ion-select-option [value]="7">Julio</ion-select-option>
+                <ion-select-option [value]="8">Agosto</ion-select-option>
+                <ion-select-option [value]="9">Septiembre</ion-select-option>
+                <ion-select-option [value]="10">Octubre</ion-select-option>
+                <ion-select-option [value]="11">Noviembre</ion-select-option>
+                <ion-select-option [value]="12">Diciembre</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </div>
+
+          <div
+            class="donations-list"
+            *ngIf="donationsByMonthFiltered().length > 0; else noDonations"
+          >
+            <div
+              class="donation-row"
+              *ngFor="let row of donationsByMonthFiltered()"
+            >
+              <div class="left">
+                <strong>{{ row.month | date: 'MMM yyyy' }}</strong>
+                <small>{{ row.count }} donaciones</small>
+              </div>
+              <div class="right">
+                {{
+                  row.amount
+                    | currency: 'CLP':'symbol-narrow'
+                }}
+              </div>
+            </div>
+          </div>
+
+          <ng-template #noDonations>
+            <p class="empty-state">
+              No hay donaciones para los filtros seleccionados.
+            </p>
+          </ng-template>
         </ion-card-content>
       </ion-card>
 
@@ -121,7 +253,8 @@
               baseChart
               [data]="booksLineData"
               [options]="booksLineOptions"
-              [type]="'line'">
+              [type]="'line'"
+            >
             </canvas>
           </ion-card-content>
         </ion-card>
@@ -136,7 +269,8 @@
               baseChart
               [data]="exchangesLineData"
               [options]="exchangesLineOptions"
-              [type]="'line'">
+              [type]="'line'"
+            >
             </canvas>
           </ion-card-content>
         </ion-card>
@@ -154,7 +288,8 @@
               baseChart
               [data]="usersRegionPieData"
               [options]="usersRegionPieOptions"
-              [type]="'doughnut'">
+              [type]="'doughnut'"
+            >
             </canvas>
           </ion-card-content>
         </ion-card>
@@ -169,7 +304,8 @@
               baseChart
               [data]="genresBarData"
               [options]="genresBarOptions"
-              [type]="'bar'">
+              [type]="'bar'"
+            >
             </canvas>
           </ion-card-content>
         </ion-card>
@@ -181,11 +317,19 @@
           <ion-card-title>Usuarios por región (detalle)</ion-card-title>
         </ion-card-header>
         <ion-card-content>
-          <div class="bar-chart" *ngIf="d.users_by_region?.length; else noRegions">
+          <div
+            class="bar-chart"
+            *ngIf="d.users_by_region?.length; else noRegions"
+          >
             <div class="bar-row" *ngFor="let r of d.users_by_region">
-              <span class="bar-label">{{ r.region }}</span>
+              <span class="bar-label">{{ r.region || 'Sin región' }}</span>
               <div class="bar-track">
-                <div class="bar-fill" [style.width.%]="(r.total / d.total_users) * 100"></div>
+                <div
+                  class="bar-fill"
+                  [style.width.%]="
+                    d.total_users ? (r.total / d.total_users) * 100 : 0
+                  "
+                ></div>
               </div>
               <span class="bar-value">{{ r.total }}</span>
             </div>
@@ -202,22 +346,35 @@
           <ion-card-title>Géneros más intercambiados</ion-card-title>
         </ion-card-header>
         <ion-card-content>
-          <div class="bar-chart" *ngIf="d.genres_exchanges?.length; else noGenresExch">
-            <div class="bar-row" *ngFor="let g of d.genres_exchanges; let i = index">
+          <div
+            class="bar-chart"
+            *ngIf="d.genres_exchanges?.length; else noGenresExch"
+          >
+            <div
+              class="bar-row"
+              *ngFor="let g of d.genres_exchanges; let i = index"
+            >
               <span class="bar-label">{{ g.genre }}</span>
               <div class="bar-track">
-                <div class="bar-fill accent" [style.width.%]="(g.total / d.genres_exchanges[0].total) * 100"></div>
+                <div
+                  class="bar-fill accent"
+                  [style.width.%]="
+                    (g.total / d.genres_exchanges[0].total) * 100
+                  "
+                ></div>
               </div>
               <span class="bar-value">{{ g.total }}</span>
             </div>
           </div>
           <ng-template #noGenresExch>
-            <p class="empty-state">No hay datos de géneros intercambiados.</p>
+            <p class="empty-state">
+              No hay datos de géneros intercambiados.
+            </p>
           </ng-template>
         </ion-card-content>
       </ion-card>
 
-      <!-- Top usuarios -->
+      <!-- Top usuarios: más activos -->
       <ion-card>
         <ion-card-header>
           <ion-card-title>
@@ -227,7 +384,10 @@
           <ion-card-subtitle>Por intercambios completados</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
-          <ion-list *ngIf="d.top_active_users?.length; else noActiveUsers" lines="full">
+          <ion-list
+            *ngIf="d.top_active_users?.length; else noActiveUsers"
+            lines="full"
+          >
             <ion-item *ngFor="let u of d.top_active_users; let i = index">
               <ion-avatar slot="start" class="rank-avatar">
                 <span>{{ i + 1 }}</span>
@@ -242,11 +402,14 @@
             </ion-item>
           </ion-list>
           <ng-template #noActiveUsers>
-            <p class="empty-state">No hay usuarios con intercambios completados.</p>
+            <p class="empty-state">
+              No hay usuarios con intercambios completados.
+            </p>
           </ng-template>
         </ion-card-content>
       </ion-card>
 
+      <!-- Top usuarios: más publican -->
       <ion-card>
         <ion-card-header>
           <ion-card-title>
@@ -256,7 +419,10 @@
           <ion-card-subtitle>Por cantidad de libros</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
-          <ion-list *ngIf="d.top_publishers?.length; else noPublishers" lines="full">
+          <ion-list
+            *ngIf="d.top_publishers?.length; else noPublishers"
+            lines="full"
+          >
             <ion-item *ngFor="let u of d.top_publishers; let i = index">
               <ion-avatar slot="start" class="rank-avatar">
                 <span>{{ i + 1 }}</span>
@@ -276,6 +442,7 @@
         </ion-card-content>
       </ion-card>
 
+      <!-- Top usuarios: mejor calificados -->
       <ion-card>
         <ion-card-header>
           <ion-card-title>
@@ -285,13 +452,18 @@
           <ion-card-subtitle>Por promedio de calificación</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
-          <ion-list *ngIf="d.top_rated_users?.length; else noRatings" lines="full">
+          <ion-list
+            *ngIf="d.top_rated_users?.length; else noRatings"
+            lines="full"
+          >
             <ion-item *ngFor="let u of d.top_rated_users; let i = index">
               <ion-avatar slot="start" class="rank-avatar gold">
                 <span>{{ i + 1 }}</span>
               </ion-avatar>
               <ion-label>
-                <h3>{{ u.id_usuario_calificado__nombre_usuario || 'Usuario' }}</h3>
+                <h3>
+                  {{ u.id_usuario_calificado__nombre_usuario || 'Usuario' }}
+                </h3>
                 <p>{{ u.id_usuario_calificado__email }}</p>
                 <p class="ratings-count">{{ u.total }} calificaciones</p>
               </ion-label>
@@ -302,7 +474,9 @@
             </ion-item>
           </ion-list>
           <ng-template #noRatings>
-            <p class="empty-state">Todavía no hay calificaciones suficientes.</p>
+            <p class="empty-state">
+              Todavía no hay calificaciones suficientes.
+            </p>
           </ng-template>
         </ion-card-content>
       </ion-card>
