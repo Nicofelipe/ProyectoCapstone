@@ -1524,7 +1524,7 @@ def webpay_donacion_confirmar(request):
         home_url = f"{front_base}/home"
     else:
         # fallback para desarrollo
-        home_url = "http://localhost:8100/home"
+        home_url = "https://cambiotecaweb-p4ww.onrender.com/"
 
     # ==== HTML bonito + contador ====
     estado = donacion.estado
